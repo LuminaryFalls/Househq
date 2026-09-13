@@ -645,6 +645,21 @@ function emptyShell(base){
   return s;
 }
 
+/* Signs in with a fixed username/password instead of an anonymous ID.
+   Once signed in, the browser remembers it — this only asks again if
+   the phone's storage is ever cleared or the app is reinstalled. */
+async function ensureLogin(FB,auth){
+  if(auth.currentUser) return auth.currentUser;
+  for(;;){
+    const email=prompt('House HQ — sign in\n\nUsername:');
+    if(email===null) continue;
+    const pass=prompt('Password:');
+    if(pass===null) continue;
+    try{ return (await FB.signInWithEmailAndPassword(auth,email.trim(),pass)).user; }
+    catch(e){ alert('Wrong username or password. Try again.'); }
+  }
+}
+
 const cloud={
   status:'off',   // off | loading | connecting | on | error
   code:LS('hq:house')||'', config:null, FB:null, db:null, unsubs:[], err:'',
@@ -705,7 +720,7 @@ const cloud={
       // The app keeps its own copy of every photo and file, so the SDK's cache only needs the small records.
       try{ this.db=FB.initializeFirestore(app,{localCache:FB.persistentLocalCache({cacheSizeBytes:50*1024*1024})}); }
       catch(e){ this.db=FB.getFirestore(app); }
-      await FB.signInAnonymously(FB.getAuth(app));
+      await ensureLogin(FB,FB.getAuth(app));
       if(!this.lastSynced){
         const snap=await FB.getDoc(this.ref('meta')), exists=snap.exists();
         // The sheet said which was meant. A code that does not match is refused rather than silently
