@@ -195,6 +195,8 @@ const store={
 const THEMES={
   concrete:{label:'Spruce',ground:'#DCE6DE',paper:'#FFFFFF',ink:'#14201B',ink70:'#4C5D56',rule:'#BFCDC4',accent:'#1F6B4A',onAccent:'#FFFFFF',accentSoft:'#D2E8DB',link:'#17557F',good:'#1F6B4A',onGood:'#FFFFFF',goodSoft:'#D2E8DB',warn:'#A33E17',onWarn:'#FFFFFF',warnSoft:'#F6E2D8',scrim:'rgba(18,32,26,.55)'},
   midnight:{label:'Midnight',ground:'#0C121A',paper:'#161F2A',ink:'#E8EEF5',ink70:'#97A6B6',rule:'#35434F',accent:'#5AA9E6',onAccent:'#0B1119',accentSoft:'#1A2C3D',link:'#7FC4F2',good:'#4FBF8B',onGood:'#0B1119',goodSoft:'#15302A',warn:'#F0A265',onWarn:'#0B1119',warnSoft:'#3B2A1C',scrim:'rgba(0,0,0,.72)'},
+  forest:{label:'Forest',ground:'#0C121A',paper:'#161F2A',ink:'#E8EEF5',ink70:'#97A6B6',rule:'#35434F',accent:'#4CAF7D',onAccent:'#0B1119',accentSoft:'#16302A',link:'#8FE0B0',good:'#4FBF8B',onGood:'#0B1119',goodSoft:'#15302A',warn:'#F0A265',onWarn:'#0B1119',warnSoft:'#3B2A1C',scrim:'rgba(0,0,0,.72)'},
+  twilight:{label:'Twilight',ground:'#0C121A',paper:'#161F2A',ink:'#E8EEF5',ink70:'#97A6B6',rule:'#35434F',accent:'#9B7FE0',onAccent:'#0B1119',accentSoft:'#241A3D',link:'#C9A8F5',good:'#4FBF8B',onGood:'#0B1119',goodSoft:'#15302A',warn:'#F0A265',onWarn:'#0B1119',warnSoft:'#3B2A1C',scrim:'rgba(0,0,0,.72)'},
   crimson:{label:'Brick',ground:'#E9D2D0',paper:'#FFF7F5',ink:'#2A1618',ink70:'#6E5153',rule:'#D7BDBC',accent:'#9C2F33',onAccent:'#FFFFFF',accentSoft:'#F5DCDC',link:'#17627A',good:'#1F6A63',onGood:'#FFFFFF',goodSoft:'#D8EAE7',warn:'#8F4A0C',onWarn:'#FFFFFF',warnSoft:'#F7E7D3',scrim:'rgba(42,22,24,.55)'},
   earth:{label:'Cedar',ground:'#EFE0BB',paper:'#FEFAEF',ink:'#2B2414',ink70:'#6A6046',rule:'#DBC9A0',accent:'#7F6210',onAccent:'#FFFFFF',accentSoft:'#F5E9C9',link:'#2F5E86',good:'#56702A',onGood:'#FFFFFF',goodSoft:'#E7EDD2',warn:'#A33C18',onWarn:'#FFFFFF',warnSoft:'#F7E3D8',scrim:'rgba(43,36,20,.55)'}
 };
@@ -1550,7 +1552,9 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 .kv dd{margin:0;font-weight:500}
 
 .addbox{display:grid;gap:8px;margin-top:12px;padding:12px;border:1.5px dashed ${t.rule};border-radius:12px}
-.themes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.themecols{display:flex;gap:10px}
+.themecol{flex:1;display:flex;flex-direction:column;gap:8px;border:1.5px solid ${t.rule};border-radius:12px;padding:10px}
+.themecol h3{margin:0 0 2px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${t.ink70}}
 .tbtn{display:flex;align-items:center;gap:10px;background:${t.paper};color:${t.ink};
   border:1.5px solid ${t.rule};border-radius:10px;padding:11px 12px;font-weight:600;text-align:left;min-height:46px}
 .tbtn.on{border-color:${t.accent};box-shadow:0 0 0 2px ${t.accentSoft}}
@@ -2311,10 +2315,16 @@ function viewSettings(){
     <button class="btn" data-act="pasterestore">Restore by pasting the text</button>
   </div>
   <h2 class="sec">Theme</h2>
-  <div class="themes">${Object.entries(THEMES).map(([k,t])=>`
+  <div class="themecols">
+    <div class="themecol"><h3>Light</h3>${['concrete','crimson','earth'].map(k=>{const t=THEMES[k];return `
     <button class="tbtn ${S.theme===k?'on':''}" data-act="theme" data-v="${k}">
       <span class="sw"><i style="background:${t.ground}"></i><i style="background:${t.paper}"></i><i style="background:${t.ink}"></i><i style="background:${t.accent}"></i></span>
-      ${t.label}</button>`).join('')}</div>
+      ${t.label}</button>`;}).join('')}</div>
+    <div class="themecol"><h3>Dark</h3>${['twilight','midnight','forest'].map(k=>{const t=THEMES[k];return `
+    <button class="tbtn ${S.theme===k?'on':''}" data-act="theme" data-v="${k}">
+      <span class="sw"><i style="background:${t.ground}"></i><i style="background:${t.paper}"></i><i style="background:${t.ink}"></i><i style="background:${t.accent}"></i></span>
+      ${t.label}</button>`;}).join('')}</div>
+  </div>
   <h2 class="sec">On this phone</h2>
   <div class="btns" style="margin-top:0">
     <button class="tbtn ${pref.night()?'on':''}" data-act="nightauto" aria-pressed="${pref.night()}">${pref.night()?I.check:''} Midnight after dark, whatever the phone says</button>
