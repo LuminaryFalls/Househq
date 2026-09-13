@@ -721,7 +721,12 @@ const cloud={
       // The app keeps its own copy of every photo and file, so the SDK's cache only needs the small records.
       try{ this.db=FB.initializeFirestore(app,{localCache:FB.persistentLocalCache({cacheSizeBytes:50*1024*1024})}); }
       catch(e){ this.db=FB.getFirestore(app); }
-      await ensureLogin(FB,FB.getAuth(app));
+      const _u=await ensureLogin(FB,FB.getAuth(app));
+      /* TEMP — compare this against your rules file, then delete these 4 lines. */
+      if(!LS('hq:uidshown2')){
+        LS('hq:uidshown2','1');
+        setTimeout(()=>alert('Signed in as: '+_u.email+'\n\nUID:\n'+_u.uid+'\n\nCheck this UID is pasted exactly (no extra spaces) into your published Firestore rules.'),1500);
+      }
       if(!this.lastSynced){
         const snap=await FB.getDoc(this.ref('meta')), exists=snap.exists();
         // The sheet said which was meant. A code that does not match is refused rather than silently
