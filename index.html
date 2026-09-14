@@ -676,6 +676,7 @@ function showCopyBox(title,text){
 }
 
 async function ensureLogin(FB,auth){
+  await auth.authStateReady();
   if(auth.currentUser && !auth.currentUser.isAnonymous) return auth.currentUser;
   if(auth.currentUser && auth.currentUser.isAnonymous){ try{ await FB.signOut(auth); }catch(e){} }
   for(;;){
