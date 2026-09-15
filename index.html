@@ -653,27 +653,8 @@ function emptyShell(base){
 /* Shows text in an actual on-screen box with a Copy button, since alert()
    text can't be selected/copied on iPhone. Falls back to auto-select
    if the Copy button isn't allowed to touch the clipboard. */
-function showCopyBox(title,text){
-  const box=document.createElement('div');
-  box.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
-  box.innerHTML=`<div style="background:#fff;color:#111;padding:20px;border-radius:14px;max-width:340px;width:100%;font-family:-apple-system,sans-serif;">
-    <div style="font-weight:600;font-size:16px;margin-bottom:10px;">${title}</div>
-    <input readonly style="width:100%;box-sizing:border-box;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;margin-bottom:10px;" value="${text}">
-    <div style="display:flex;gap:8px;">
-      <button id="hqCopyBtn" style="flex:1;padding:10px;border:0;border-radius:8px;background:#222;color:#fff;font-size:15px;">Copy</button>
-      <button id="hqCloseBtn" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#111;font-size:15px;">Close</button>
-    </div>
-  </div>`;
-  document.body.appendChild(box);
-  const input=box.querySelector('input');
-  const copyBtn=box.querySelector('#hqCopyBtn');
-  copyBtn.onclick=async()=>{
-    input.focus(); input.select(); input.setSelectionRange(0,text.length);
-    try{ await navigator.clipboard.writeText(text); copyBtn.textContent='Copied!'; }
-    catch(e){ try{ document.execCommand('copy'); copyBtn.textContent='Copied!'; }catch(e2){ copyBtn.textContent='Tap & hold the box above'; } }
-  };
-  box.querySelector('#hqCloseBtn').onclick=()=>box.remove();
-}
+box.remove();
+
 
 async function ensureLogin(FB,auth){
   await auth.authStateReady();
