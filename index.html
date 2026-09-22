@@ -660,31 +660,6 @@ function emptyShell(base){
 /* Signs in with a fixed username/password instead of an anonymous ID.
    Once signed in, the browser remembers it — this only asks again if
    the phone's storage is ever cleared or the app is reinstalled. */
-/* Shows text in an actual on-screen box with a Copy button, since alert()
-   text can't be selected/copied on iPhone. Falls back to auto-select
-   if the Copy button isn't allowed to touch the clipboard. */
-function showCopyBox(title,text){
-  const box=document.createElement('div');
-  box.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
-  box.innerHTML=`<div style="background:#fff;color:#111;padding:20px;border-radius:14px;max-width:340px;width:100%;font-family:-apple-system,sans-serif;">
-    <div style="font-weight:600;font-size:16px;margin-bottom:10px;">${title}</div>
-    <input readonly style="width:100%;box-sizing:border-box;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;margin-bottom:10px;" value="${text}">
-    <div style="display:flex;gap:8px;">
-      <button id="hqCopyBtn" style="flex:1;padding:10px;border:0;border-radius:8px;background:#222;color:#fff;font-size:15px;">Copy</button>
-      <button id="hqCloseBtn" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#111;font-size:15px;">Close</button>
-    </div>
-  </div>`;
-  document.body.appendChild(box);
-  const input=box.querySelector('input');
-  const copyBtn=box.querySelector('#hqCopyBtn');
-  copyBtn.onclick=async()=>{
-    input.focus(); input.select(); input.setSelectionRange(0,text.length);
-    try{ await navigator.clipboard.writeText(text); copyBtn.textContent='Copied!'; }
-    catch(e){ try{ document.execCommand('copy'); copyBtn.textContent='Copied!'; }catch(e2){ copyBtn.textContent='Tap & hold the box above'; } }
-  };
-  box.querySelector('#hqCloseBtn').onclick=()=>box.remove();
-}
-
 async function ensureLogin(FB,auth){
   await auth.authStateReady();
   if(auth.currentUser && !auth.currentUser.isAnonymous) return auth.currentUser;
@@ -1034,6 +1009,17 @@ const FILE_MAX=200*1024*1024;         // what the phone will hold
 const SHARE_MAX=20*1024*1024;         // past this it stays on this phone rather than syncing
 const CHUNK=700000;                   // stays inside Firestore's 1 MB document limit
 const FILE_CATS=['Plans','Budget','Papers'];
+/* Files can also be pinned to one piece of equipment, a vehicle or a pet, with a
+   category of "eq:<id>" / "veh:<id>" / "pet:<id>". This turns that into something readable. */
+function catLabel(cat){
+  const m=/^(eq|veh|pet):(.+)$/.exec(cat||'');
+  if(!m) return cat||'';
+  const list=m[1]==='eq'?(S.equipment||[]):m[1]==='veh'?(S.vehicles||[]):(S.pets||[]);
+  const item=list.find(x=>x.id===m[2]);
+  if(!item) return '';
+  const pre=m[1]==='eq'?'Equipment: ':m[1]==='veh'?'Vehicle: ':'Pet: ';
+  return pre+(item.name||'unnamed');
+}
 const fileCache={};
 const prettySize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const isSheet=f=>/sheet|excel|csv|numbers/i.test(f.type||'')||/\.(xlsx?|xlsm|csv|numbers)$/i.test(f.name||'');
@@ -1546,7 +1532,7 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 .grp>h3{font:700 18px ${HEAD};margin:0 0 4px;padding-bottom:6px;
   border-bottom:1px solid ${t.rule};display:flex;justify-content:space-between;align-items:baseline}
 .grp>h3 span{font:500 13px ${BODY};color:${t.ink70}}
-.zone{border:1.5px solid ${t.rule};border-radius:16px;padding:14px 14px 4px;margin-bottom:22px;background:${t.paper}}
+.zone{border:1.5px solid ${t.rule};border-radius:16px;padding:14px 14px 4px;margin-bottom:22px}
 .zone>*:first-child{margin-top:0}
 
 .row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid ${t.rule}}
@@ -1574,6 +1560,9 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
   font:700 17px ${HEAD};letter-spacing:.02em;padding:13px}
 .btn.dark{background:${t.ink};color:${t.paper};border-color:${t.ink}}
 .btn.danger{color:${t.warn};border-color:${t.warnSoft};background:${t.warnSoft}}
+.btn.danger.big{margin-top:18px;min-height:54px;font-size:16px;font-weight:700;
+  color:#fff;-webkit-text-fill-color:#fff;background:#C2372B;border-color:#C2372B}
+.btn.danger.big:active{background:#9E2C22;border-color:#9E2C22}
 .btn.dash{border-style:dashed;background:transparent}
 .editbtn{width:auto;flex:0 0 auto;padding:0 14px}
 .editbtn.on{background:${t.accentSoft};border-color:${t.accent};color:${t.accent}}
@@ -1605,6 +1594,8 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 .log .d em{font:500 12.5px ${BODY};font-style:normal;color:${t.ink70}}
 .log .w{font-size:14px;line-height:1.4}
 .log .meta{font-size:12.5px;color:${t.ink70};margin-top:2px}
+.log .logbody{display:block;width:100%;text-align:left;background:none;border:0;padding:1px 0;margin:0;border-radius:6px}
+.log .logbody:active{background:${t.accentSoft}}
 
 .specrow{display:flex;gap:6px;margin-bottom:8px;align-items:center}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:15px;margin:0}
@@ -1901,11 +1892,13 @@ function stripHTML(ids){
 function logHTML(logs,showSubject){
   if(!logs.length) return '';
   return `<div class="log">${logs.map(l=>`<div class="e">
-    <div class="d">${esc(l.date)}${l.who?`<em>${esc(l.who)}</em>`:''}
-      <button class="icb" style="margin-left:auto" data-act="dellog" data-id="${l.id}">${I.trash}</button></div>
-    ${showSubject?`<div class="w"><b>${esc(l.subject)}</b></div>`:''}
-    ${l.what?`<div class="w">${esc(l.what)}</div>`:''}
-    ${(l.cost||l.doc)?`<div class="meta">${l.cost?'$'+esc(l.cost):''}${l.cost&&l.doc?' · ':''}${l.doc?esc(l.doc):''}</div>`:''}
+    <div class="d">${esc(l.date)}${l.who?`<em>${esc(l.who)}</em>`:''}</div>
+    <button class="logbody" data-act="editlog" data-id="${l.id}" aria-label="Open this record">
+      ${showSubject&&l.subject?`<div class="w"><b>${esc(l.subject)}</b></div>`:''}
+      ${l.what?`<div class="w">${esc(l.what)}</div>`:''}
+      ${(l.cost||l.doc)?`<div class="meta">${l.cost?'$'+esc(l.cost):''}${l.cost&&l.doc?' · ':''}${l.doc?esc(l.doc):''}</div>`:''}
+      ${l.what||l.cost||l.doc||(showSubject&&l.subject)?'':`<div class="meta">Tap to add details</div>`}
+    </button>
     ${stripHTML(l.photos)}</div>`).join('')}</div>`;
 }
 
@@ -1933,25 +1926,25 @@ function searchAll(ql){
   (S.equipment||[]).forEach(e=>{
     const parts=(e.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(e.checks||[]).map(c=>c.title).join(' ');
-    if(has(e.name,e.make,e.model,e.serial,parts,checks))
+    if(has(e.name,e.make,e.model,e.serial,parts,checks,e.notes))
       add('Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
   (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v))
     add('Sizes',sp.k||'Unnamed',[sp.v],'tab','', 'house'); });
-  (S.files||[]).forEach(f=>{ if(has(f.name,f.note,f.cat))
-    add('Files',f.name,[f.cat,f.note],'openfile',f.id); });
+  (S.files||[]).forEach(f=>{ if(has(f.name,f.note,f.cat,catLabel(f.cat)))
+    add('Files',f.name,[catLabel(f.cat)||f.cat,f.note],'openfile',f.id); });
   (S.keyDates||[]).forEach(k=>{ if(has(k.title,k.note)){
     const w=nextOccur(k); add('Key dates',k.title,[w?fmtDate(isoOf(w)):'no date',w?countdown(w):''],'keydate',k.id); } });
   (S.vehicles||[]).forEach(veh=>{
     const parts=(veh.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(veh.checks||[]).map(c=>c.title).join(' ');
-    if(has(veh.name,veh.make,veh.model,veh.serial,parts,checks))
+    if(has(veh.name,veh.make,veh.model,veh.serial,parts,checks,veh.notes))
       add('Vehicles',veh.name,[[veh.make,veh.model].filter(Boolean).join(' '),veh.serial],'vehiclejump','',veh.id);
   });
   (S.pets||[]).forEach(pet=>{
     const parts=(pet.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
-    if(has(pet.name,pet.breed,parts))
-      add('Pets',pet.name,[pet.breed],'petjump','',pet.id);
+    if(has(pet.name,pet.breed,parts,pet.vetName,pet.vetPhone))
+      add('Pets',pet.name,[pet.breed,pet.vetName],'petjump','',pet.id);
   });
   (S.fuel||[]).forEach(f=>{ if(has(f.vendor,f.note,f.date))
     add('Fuel',fmtDate(f.date),[f.gallons?f.gallons+' gal':'',f.vendor,f.note],'fuel',f.id); });
@@ -2303,6 +2296,13 @@ function maintCardsHTML(cfg){
             ${editing?`<button class="icb" data-act="${cfg.actDelChk}" data-id="${e.id}" data-cid="${c.id}" aria-label="Remove this check">${I.trash}</button>`:''}</div>`;
         }).join('')}
         ${editing?`<button class="btn" style="margin-top:10px" data-act="${cfg.actAddChk}" data-id="${e.id}">${I.plus} Add a check</button>`:''}
+
+        <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Notes</h3>
+        <textarea rows="3" data-act="${cfg.actField}" data-id="${e.id}" data-f="notes" placeholder="Quirks, settings, where you bought it, what the repair guy said">${esc(e.notes||'')}</textarea>
+
+        <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Documentation</h3>
+        ${filesSection(cfg.filePrefix+e.id,'Nothing yet. The warranty, the receipt, the manual — upload it or paste a link.')}
+
         ${logHTML(S.logs.filter(l=>l.refId===e.id),false)}
         <div class="btns">
           <button class="btn" data-act="log" data-id="${e.id}" data-sub="${esc(e.name)}">${I.doc} Log a service</button>
@@ -2349,7 +2349,11 @@ function petCardsHTML(){
         ${pics.length?`<div class="pgrid">${pics.slice(0,6).map(p=>`<div class="pcell">
           <button class="ph" data-act="viewphoto" data-id="${p.id}" aria-label="Open this photo">${thumbOf(p.id)?`<img src="${thumbOf(p.id)}" alt="">`:I.img}</button>
         </div>`).join('')}</div>`:'<p class="hint" style="margin:4px 0">No photos yet.</p>'}
-        <button class="btn" data-act="snappet" data-id="${pet.id}" data-sub="${esc(pet.name)}">${I.cam} Add a photo${pet.name?' of '+esc(pet.name):''}</button>
+        ${pet.name?`<button class="btn" data-act="snappet" data-id="${pet.id}" data-sub="${esc(pet.name)}">${I.cam} Add a photo of ${esc(pet.name)}</button>`
+          :`<p class="hint" style="margin:4px 0">Give this pet a name above and you can attach photos here.</p>`}
+
+        <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Documentation</h3>
+        ${filesSection('pet:'+pet.id,'Nothing yet. Vaccination records, adoption papers, pedigree — upload it or paste a link.')}
 
         <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Vet visits and grooming</h3>
         ${logHTML(S.logs.filter(l=>l.refId===pet.id),false)}
@@ -2384,7 +2388,7 @@ function viewGear(){
     ${maintCardsHTML({items:S.vehicles||[], done:S.vehicleDone||{}, y, openId:openVehicle, noun:'vehicle', addAlways:true,
       actOpen:'vehicle', actField:'veh', actSpec:'vspec', actAddSpec:'addvspec', actDelSpec:'delvspec',
       actChk:'vchk', actAddChk:'addvchk', actDelChk:'delvchk', actToggle:'togglevehicle',
-      actDel:'delvehicle', actAddNew:'addvehicle', serialLabel:'VIN or plate', addLabel:'Add a vehicle'})}
+      actDel:'delvehicle', actAddNew:'addvehicle', serialLabel:'VIN or plate', addLabel:'Add a vehicle', filePrefix:'veh:'})}
   </section>
 
   <section class="zone">
@@ -2393,7 +2397,7 @@ function viewGear(){
     ${maintCardsHTML({items:S.equipment||[], done:S.equipDone||{}, y, openId:openEquip, noun:'equipment',
       actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
       actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
-      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment'})}
+      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment', filePrefix:'eq:'})}
   </section>
 
   <section class="zone">
@@ -2606,7 +2610,7 @@ function modalHTML(){
   }
   if(modal.kind==='log'){
     const d=modal.draft;
-    return sheet('Record the work',`
+    return sheet(modal.isEdit?'Edit this record':'Record the work',`
       <div class="m" style="margin-bottom:2px">${esc(d.subject)}</div>
       <div style="display:flex;gap:8px">
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
@@ -2619,8 +2623,9 @@ function modalHTML(){
       </div>
       <input data-m="doc" value="${esc(d.doc)}" placeholder="Invoice, report or permit number">
       ${stripHTML(d.photos)}
-      <button class="btn" data-act="mphoto">${I.cam} Take or add a photo of the paperwork</button>
-      <button class="btn solid" data-act="done">Done</button>`,true);
+      <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Take or add a photo of the paperwork'}</button>
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isEdit?`<button class="btn danger big" data-act="dellog" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this record'}</button>`:''}`,true);
   }
   if(modal.kind==='detail'){
     const t=S.tasks.find(x=>x.id===modal.id); if(!t) return '';
@@ -2786,7 +2791,9 @@ function modalHTML(){
     return sheet(modal.isNew?(link?'Add a link':'Name this file'):'Edit',`
       <label class="lbl">Name<input data-m="name" value="${esc(d.name)}" placeholder="What is it"></label>
       ${link?`<label class="lbl">Web address<input data-m="url" value="${esc(d.url)}" placeholder="https://" inputmode="url" autocapitalize="none" spellcheck="false"></label>`:''}
-      <label class="lbl">Where it belongs<select data-m="cat">${FILE_CATS.map(c=>`<option ${d.cat===c?'selected':''}>${c}</option>`).join('')}</select></label>
+      <label class="lbl">Where it belongs<select data-m="cat">${
+        (catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
+          .map(([val,lab])=>`<option value="${esc(val)}" ${d.cat===val?'selected':''}>${esc(lab)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note)}" placeholder="A note about it">
       ${d.stored?`<p class="hint" style="margin:0">${esc(prettySize(d.size))}${!cloud.code?' · on this phone':d.shared===false?' · too big to sync, stays on this phone':' · shared with the other phones'}</p>`:''}
       <button class="btn solid" data-act="done">Done</button>`,true);
@@ -3167,8 +3174,18 @@ document.addEventListener('click',async e=>{
   if(a==='log'){ const now=new Date(); if(noteMsg&&noteKind==='ok') setNote('');
     modalAt=Date.now(), modal={kind:'log',draft:{id:uid(),refId:id,subject:btn.dataset.sub||'',date:now.toISOString().slice(0,10),
       time:now.toTimeString().slice(0,5),what:btn.dataset.what||'',who:pref.who(),cost:'',doc:'',photos:[]}}; render(); return; }
-  if(a==='dellog'){ const i=S.logs.findIndex(l=>l.id===id); if(i<0) return;
-    const [l]=S.logs.splice(i,1); deleted('the record from '+l.date,()=>S.logs.splice(i,0,l)); return; }
+  if(a==='editlog'){ const l=S.logs.find(x=>x.id===id); if(!l) return;
+    const [dpart,tpart]=String(l.date||'').split(' ');
+    modalAt=Date.now(); modal={kind:'log',isEdit:true,draft:{...l,date:dpart||'',time:tpart||'',photos:[...(l.photos||[])]}};
+    render(); return; }
+  if(a==='dellog'){
+    // In the record sheet, the first tap only arms the button — the second deletes.
+    if(modal&&modal.kind==='log'&&modal.isEdit&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=S.logs.findIndex(l=>l.id===id); if(i<0) return;
+    // Drop the sheet without committing its draft, or closing it would write the record straight back.
+    if(modal&&modal.kind==='log') modal=null;
+    const [l]=S.logs.splice(i,1);
+    deleted('the record from '+l.date,()=>S.logs.splice(i,0,l)); return; }
 
   if(a==='snap'){ pick(async files=>{
       const ids=[];
@@ -3242,14 +3259,17 @@ document.addEventListener('click',async e=>{
     Object.keys(S.equipDone).forEach(k=>{ if(k.startsWith(pre)){ keep[k]=S.equipDone[k]; delete S.equipDone[k]; } });
     deleted('\u201c'+(ck.title||'that check')+'\u201d',
       ()=>{ q2.checks.splice(i,0,ck); Object.assign(S.equipDone,keep); }); return; }
-  if(a==='addequip'){ const e2={id:uid(),name:'New equipment',make:'',model:'',serial:'',specs:[],checks:[]};
+  if(a==='addequip'){ const e2={id:uid(),name:'New equipment',make:'',model:'',serial:'',notes:'',specs:[],checks:[]};
     S.equipment.push(e2); openEquip=e2.id; render(); save(); return; }
   if(a==='delequip'){ const i=S.equipment.findIndex(x=>x.id===id); if(i<0) return;
     const [e2]=S.equipment.splice(i,1);
     const keep={};   // its ticked years go with it, and come back with it
     Object.keys(S.equipDone).forEach(k=>{ if(k.startsWith(e2.id+':')){ keep[k]=S.equipDone[k]; delete S.equipDone[k]; } });
+    // its warranties and receipts fall back to Papers rather than vanishing
+    const moved=(S.files||[]).filter(f=>f.cat==='eq:'+e2.id); moved.forEach(f=>f.cat='Papers');
     if(openEquip===e2.id) openEquip=null;
-    deleted(e2.name,()=>{ S.equipment.splice(i,0,e2); Object.assign(S.equipDone,keep); }); return; }
+    deleted(e2.name,()=>{ S.equipment.splice(i,0,e2); Object.assign(S.equipDone,keep);
+      moved.forEach(f=>f.cat='eq:'+e2.id); }); return; }
 
   if(a==='addvspec'){ const q2=S.vehicles.find(x=>x.id===id); if(!q2) return;
     q2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
@@ -3266,14 +3286,16 @@ document.addEventListener('click',async e=>{
     Object.keys(S.vehicleDone).forEach(k=>{ if(k.startsWith(pre)){ keep[k]=S.vehicleDone[k]; delete S.vehicleDone[k]; } });
     deleted('\u201c'+(ck.title||'that check')+'\u201d',
       ()=>{ q2.checks.splice(i,0,ck); Object.assign(S.vehicleDone,keep); }); return; }
-  if(a==='addvehicle'){ const v2={id:uid(),name:'New vehicle',make:'',model:'',serial:'',specs:[],checks:[]};
+  if(a==='addvehicle'){ const v2={id:uid(),name:'New vehicle',make:'',model:'',serial:'',notes:'',specs:[],checks:[]};
     S.vehicles.push(v2); openVehicle=v2.id; render(); save(); return; }
   if(a==='delvehicle'){ const i=S.vehicles.findIndex(x=>x.id===id); if(i<0) return;
     const [v2]=S.vehicles.splice(i,1);
     const keep={};
     Object.keys(S.vehicleDone).forEach(k=>{ if(k.startsWith(v2.id+':')){ keep[k]=S.vehicleDone[k]; delete S.vehicleDone[k]; } });
+    const moved=(S.files||[]).filter(f=>f.cat==='veh:'+v2.id); moved.forEach(f=>f.cat='Papers');
     if(openVehicle===v2.id) openVehicle=null;
-    deleted(v2.name,()=>{ S.vehicles.splice(i,0,v2); Object.assign(S.vehicleDone,keep); }); return; }
+    deleted(v2.name,()=>{ S.vehicles.splice(i,0,v2); Object.assign(S.vehicleDone,keep);
+      moved.forEach(f=>f.cat='veh:'+v2.id); }); return; }
 
   if(a==='addpetspec'){ const p2=S.pets.find(x=>x.id===id); if(!p2) return;
     p2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
@@ -3285,8 +3307,15 @@ document.addEventListener('click',async e=>{
     S.pets.push(p2); openPet=p2.id; render(); save(); return; }
   if(a==='delpet'){ const i=S.pets.findIndex(x=>x.id===id); if(i<0) return;
     const [p2]=S.pets.splice(i,1);
+    // its papers fall back to Papers, and its photos go loose rather than staying pinned to a pet that is gone
+    const movedFiles=(S.files||[]).filter(f=>f.cat==='pet:'+p2.id); movedFiles.forEach(f=>f.cat='Papers');
+    const oldKey=petPhotoKey(p2.name);
+    const movedPics=p2.name?(S.photos||[]).filter(ph=>(ph.where||'').trim().toLowerCase()===oldKey):[];
+    movedPics.forEach(ph=>ph.where='');
     if(openPet===p2.id) openPet=null;
-    deleted(p2.name||'that pet',()=>S.pets.splice(i,0,p2)); return; }
+    deleted(p2.name||'that pet',()=>{ S.pets.splice(i,0,p2);
+      movedFiles.forEach(f=>f.cat='pet:'+p2.id);
+      movedPics.forEach(ph=>ph.where=petPhotoTag(p2.name)); }); return; }
   if(a==='snappet'){ const petTag=petPhotoTag(btn.dataset.sub||''); pick(async files=>{
       let n=0; for(const f of files){ if(await addPhoto(f,{caption:'',where:petTag})) n++; }
       if(files.length>1) setNote(n===files.length?`${n} photos added.`:`${n} of ${files.length} photos added.`,'ok');
@@ -3583,14 +3612,17 @@ function buildHandoff(){
   const gear=(S.equipment||[]).map(e=>`<h3>${esc(e.name)}</h3>
     <p class="sub">${esc([e.make,e.model].filter(Boolean).join(' '))}${e.serial?' · serial '+esc(e.serial):''}</p>
     ${hoTable((e.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
-    ${(e.checks||[]).length?`<p class="sub">Tune-up: ${esc((e.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}`).join('');
+    ${(e.checks||[]).length?`<p class="sub">Tune-up: ${esc((e.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
+    ${(e.notes||'').trim()?`<p class="sub">Notes: ${esc(e.notes)}</p>`:''}`).join('');
   const vehicles=(S.vehicles||[]).map(veh=>`<h3>${esc(veh.name)}</h3>
     <p class="sub">${esc([veh.make,veh.model].filter(Boolean).join(' '))}${veh.serial?' · VIN '+esc(veh.serial):''}</p>
     ${hoTable((veh.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
-    ${(veh.checks||[]).length?`<p class="sub">Maintenance: ${esc((veh.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}`).join('');
+    ${(veh.checks||[]).length?`<p class="sub">Maintenance: ${esc((veh.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
+    ${(veh.notes||'').trim()?`<p class="sub">Notes: ${esc(veh.notes)}</p>`:''}`).join('');
   const pets=(S.pets||[]).map(pet=>`<h3>${esc(pet.name)}</h3>
     <p class="sub">${esc(pet.breed||'')}</p>
-    ${hoTable((pet.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}`).join('');
+    ${hoTable([...(pet.vetName||pet.vetPhone?[['Vet',[pet.vetName,pet.vetPhone].filter(Boolean).join(' · ')]]:[]),
+      ...(pet.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v])])}`).join('');
   const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
   const logs=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
@@ -3600,7 +3632,7 @@ function buildHandoff(){
   const shots=(S.photos||[]).filter(p=>photoCache[p.id]).slice(0,30);
   const photos=shots.map(p=>`<figure><img src="${photoCache[p.id]}" alt="">
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
-  const files=hoTable((S.files||[]).map(f=>[f.name,[f.cat,f.stored?prettySize(f.size):'link',f.note].filter(Boolean).join(' · ')]));
+  const files=hoTable((S.files||[]).map(f=>[f.name,[catLabel(f.cat)||f.cat,f.stored?prettySize(f.size):'link',f.note].filter(Boolean).join(' · ')]));
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(S.propertyName||'House')} — handoff</title>
