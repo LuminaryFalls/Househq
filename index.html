@@ -315,7 +315,7 @@ function seed(){
       specs:e.specs.map(([k,v])=>({id:uid(),k,v})),
       checks:e.checks.map(([title,freq])=>({id:uid(),title,freq}))})),
     equipDone:{},
-    vehicles:[], vehicleDone:{}, pets:[],
+    vehicles:[], vehicleDone:{}, pets:[], inventory:[],
     specs:[['Furnace filter',''],['Humidifier pad',''],['Well sediment filter',''],['Water heater element',''],['Fridge water filter','']].map(([k,v])=>({id:uid(),k,v})),
     logs:[], photos:[],
     contacts:[],
@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -591,7 +591,7 @@ const online=()=>navigator.onLine!==false;
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } };
 const SYNC_KEY='hq:synced', PEND_KEY='hq:pendingphotos', PENDF_KEY='hq:pendingfiles', PREJOIN_KEY='hq:prejoin';
 let prejoin=null;   // what was on this phone before it joined a shared house
-const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','logs','photos','contacts','specs','budget','buy','files','keyDates','fuel'];
+const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','logs','photos','contacts','specs','budget','buy','files','keyDates','fuel'];
 const CHECK_MAPS=['yearlyDone','equipDone','vehicleDone'];
 const META_FIELDS=['propertyName','closedPhases','lastBackup','createdAt'];
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -657,20 +657,41 @@ function emptyShell(base){
   return s;
 }
 
-/* Signs in with a fixed username/password instead of an anonymous ID.
-   Once signed in, the browser remembers it — this only asks again if
-   the phone's storage is ever cleared or the app is reinstalled. */
+/* Signs in with a fixed username/password. Once signed in, the browser remembers
+   it — this only asks again if the phone's storage is cleared or the app reinstalled.
+   The form is its own overlay (not the app's modal system) because it runs while
+   the app is still connecting. */
+function loginForm(errMsg){
+  return new Promise(res=>{
+    const t=THEMES[S.theme]||THEMES.concrete;
+    const box=document.createElement('div');
+    box.style.cssText=`position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:${t.ground}`;
+    box.innerHTML=`<form style="width:100%;max-width:340px;background:${t.paper};color:${t.ink};border:1.5px solid ${t.rule};border-radius:16px;padding:22px;display:grid;gap:10px;font-family:inherit">
+      <div style="font:700 26px 'Barlow Condensed',sans-serif">House HQ</div>
+      <div style="font-size:14px;color:${t.ink70};margin-top:-6px">Sign in to your house</div>
+      ${errMsg?`<div style="font-size:14px;color:${t.warn}">${esc(errMsg)}</div>`:''}
+      <input name="u" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Email" required
+        style="padding:12px;font-size:16px;border:1.5px solid ${t.rule};border-radius:10px;background:${t.ground};color:${t.ink}">
+      <input name="p" type="password" autocomplete="current-password" placeholder="Password" required
+        style="padding:12px;font-size:16px;border:1.5px solid ${t.rule};border-radius:10px;background:${t.ground};color:${t.ink}">
+      <button type="submit" style="padding:13px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:${t.accent};color:${t.onAccent}">Sign in</button>
+    </form>`;
+    document.body.appendChild(box);
+    const form=box.querySelector('form');
+    setTimeout(()=>form.u.focus(),50);
+    form.addEventListener('submit',e=>{ e.preventDefault();
+      const u=form.u.value.trim(), p=form.p.value; box.remove(); res({u,p}); });
+  });
+}
 async function ensureLogin(FB,auth){
   await auth.authStateReady();
   if(auth.currentUser && !auth.currentUser.isAnonymous) return auth.currentUser;
   if(auth.currentUser && auth.currentUser.isAnonymous){ try{ await FB.signOut(auth); }catch(e){} }
+  let err='';
   for(;;){
-    const email=prompt('House HQ — sign in\n\nUsername:');
-    if(email===null) continue;
-    const pass=prompt('Password:');
-    if(pass===null) continue;
-    try{ return (await FB.signInWithEmailAndPassword(auth,email.trim(),pass)).user; }
-    catch(e){ alert('Wrong username or password. Try again.'); }
+    const {u,p}=await loginForm(err);
+    try{ return (await FB.signInWithEmailAndPassword(auth,u,p)).user; }
+    catch(e){ err='That email or password did not work. Try again.'; }
   }
 }
 
@@ -931,8 +952,10 @@ const cloud={
   },
   deletePhoto(id){ if(this.status==='on'){ try{ this.FB.deleteDoc(this.ref('photodata',id)).catch(()=>{}); }catch(e){} } },
   /* Once a week the whole house (minus the pictures themselves) is written to
-     one document, and the last eight are kept. A bad merge or a fat-fingered
-     mass delete is then a restore, not a loss. */
+     the cloud, and the last eight are kept. A bad merge or a fat-fingered
+     mass delete is then a restore, not a loss. A big house is split across
+     several documents ("2026-W38", "2026-W38~2", …) so it never outgrows
+     Firestore's 1 MB-per-document limit. */
   async snapshot(force){
     if(this.status!=='on') return false;
     const wk=weekKey(new Date());
@@ -940,17 +963,38 @@ const cloud={
     try{
       const state={...S}; delete state.photoData;
       const d=JSON.stringify(state);
-      if(d.length>950000) return false;
-      await this.FB.setDoc(this.ref('snapshots',wk),{at:new Date().toISOString(),by:pref.who(),n:S.tasks.length+S.yearly.length+S.logs.length,d});
+      const CH=300000;   // characters per piece — safely under 1 MB even for non-English text
+      const parts=[]; for(let i=0;i<d.length;i+=CH) parts.push(d.slice(i,i+CH));
+      if(!parts.length) parts.push('');
+      if(parts.length>30){ setNote('The weekly copy is too big to keep in the cloud. Download a backup from Settings instead.'); return false; }
+      const meta={at:new Date().toISOString(),by:pref.who(),n:S.tasks.length+S.yearly.length+S.logs.length,parts:parts.length,size:d.length};
+      await this.FB.setDoc(this.ref('snapshots',wk),{...meta,d:parts[0]});
+      for(let i=1;i<parts.length;i++) await this.FB.setDoc(this.ref('snapshots',wk+'~'+(i+1)),{head:wk,d:parts[i]});
       LS('hq:snap',wk);
-      const list=await this.listSnapshots(true);
-      for(const old of list.slice(8)){ try{ await this.FB.deleteDoc(this.ref('snapshots',old.id)); }catch(e){} }
+      // tidy up: leftover pieces from a bigger copy earlier this week, and whole weeks past the last eight
+      const snap=await this.FB.getDocs(this.colRef('snapshots'));
+      const heads=snap.docs.filter(x=>!x.id.includes('~')).map(x=>({id:x.id,at:(x.data()||{}).at||''}))
+        .sort((a,b)=>(b.at||'').localeCompare(a.at||''));
+      const drop=new Set(heads.slice(8).map(h=>h.id));
+      for(const x of snap.docs){
+        const [head,pn]=x.id.split('~');
+        const stale=drop.has(head)||(head===wk&&pn&&+pn>parts.length);
+        if(stale){ try{ await this.FB.deleteDoc(this.ref('snapshots',x.id)); }catch(e){} }
+      }
       return true;
     }catch(e){ oops('weekly copy',e); return false; }
   },
   async listSnapshots(idsOnly){
     const snap=await this.FB.getDocs(this.colRef('snapshots'));
-    return snap.docs.map(x=>{ const v=x.data()||{}; return idsOnly?{id:x.id,at:v.at||''}:{id:x.id,at:v.at||'',by:v.by||'',n:v.n||0,size:(v.d||'').length,d:v.d||''}; })
+    const pieces={};
+    snap.docs.forEach(x=>{ const [head,pn]=x.id.split('~'); if(pn) (pieces[head]=pieces[head]||[]).push({n:+pn,d:(x.data()||{}).d||''}); });
+    return snap.docs.filter(x=>!x.id.includes('~')).map(x=>{ const v=x.data()||{};
+        if(idsOnly) return {id:x.id,at:v.at||''};
+        const rest=(pieces[x.id]||[]).sort((a,b)=>a.n-b.n);
+        const whole=+v.parts>1&&rest.length===+v.parts-1;
+        const d=(v.d||'')+rest.map(p=>p.d).join('');
+        return {id:x.id,at:v.at||'',by:v.by||'',n:v.n||0,size:v.size||d.length,
+          d:(+v.parts>1&&!whole)?'':d, broken:+v.parts>1&&!whole}; })
       .sort((a,b)=>(b.at||'').localeCompare(a.at||''));
   },
   async disconnect(){
@@ -1129,7 +1173,8 @@ function fileRow(f){
   return `<div class="row">
     <button class="fico" data-act="openfile" data-id="${f.id}" aria-label="Open">${fileIcon(f)}</button>
     <button class="body" data-act="openfile" data-id="${f.id}">
-      <div class="t">${esc(f.name)}</div>
+      <div class="t">${esc(f.name)}${(()=>{ const w=parseDate(f.expires); if(!w) return ''; const n=daysAway(w);
+        return ` <span class="tag ${n<0?'warn':n<=60?'':'link'}">${n<0?'expired':'ends '+esc(countdown(w))}</span>`; })()}</div>
       <div class="m">${[f.note,f.stored?prettySize(f.size):(isViewableLink(f.url)?'opens here':'link'),f.stored?'':(f.url||'').replace(/^https?:\/\//,'').split('/')[0],f.stored&&f.shared===false&&cloud.code?'this phone only':''].filter(Boolean).map(esc).join(' · ')}</div>
     </button>
     ${editing?`<button class="icb" data-act="fileedit" data-id="${f.id}" aria-label="Edit">${I.pencil}</button>
@@ -1210,6 +1255,43 @@ const repeatWord=n=>!+n?'once':+n===1?'every year':'every '+n+' years';
 function datedKeyDates(){
   return (S.keyDates||[]).filter(k=>k.date).map(k=>({...k,when:nextOccur(k)}))
     .filter(k=>k.when).sort((a,b)=>a.when-b.when);
+}
+/* ---------- due dates on pets, vehicles and equipment ----------
+   A due is {id,title,date,every} where every is in MONTHS (0 = once), so a
+   monthly heartworm pill and a yearly registration both fit. */
+const DUE_EVERY=[[0,'Once'],[1,'Every month'],[3,'Every 3 months'],[6,'Every 6 months'],[12,'Every year'],[24,'Every 2 years'],[36,'Every 3 years']];
+const dueEveryWord=m=>(DUE_EVERY.find(([v])=>v===+m)||[0,'every '+m+' months'])[1];
+function nextDue(du){
+  let d=parseDate(du&&du.date); if(!d) return null;
+  const m=+((du&&du.every)||0);
+  if(m>0){ const t=today0(); let g=0; while(d<t&&g++<600) d=addMonths(d,m); }
+  return d;
+}
+const OWNER_KINDS={pet:{list:()=>S.pets||[],word:'Pet',act:'petjump'},veh:{list:()=>S.vehicles||[],word:'Vehicle',act:'vehiclejump'},eq:{list:()=>S.equipment||[],word:'Equipment',act:'equipjump'}};
+const ownerOf=(kind,id)=>((OWNER_KINDS[kind]||{list:()=>[]}).list()).find(x=>x.id===id);
+/* Mileage service on a vehicle check: {miles: interval, lastMi: odometer when last done}. */
+function milesLeft(veh,c){
+  const every=num(c&&c.miles), last=num(c&&c.lastMi), odo=num(veh&&veh.odo);
+  if(!every||!odo) return null;
+  return (last||0)+every-odo;
+}
+const milesWord=n=>n<0?Math.abs(Math.round(n)).toLocaleString()+' mi overdue':'due in '+Math.round(n).toLocaleString()+' mi';
+/* Everything with a date — key dates, pet/vehicle/equipment dues, warranty ends —
+   plus vehicle service that is due by mileage, in one list. */
+function upcomingAll(){
+  const out=[];
+  datedKeyDates().forEach(k=>out.push({title:k.title,sub:'Key date',when:k.when,act:'keydate',id:k.id}));
+  for(const kind of Object.keys(OWNER_KINDS)){
+    for(const o of OWNER_KINDS[kind].list()){
+      (o.dues||[]).forEach(du=>{ const w=nextDue(du); if(w&&(du.title||'').trim())
+        out.push({title:du.title,sub:(o.name||OWNER_KINDS[kind].word),when:w,act:OWNER_KINDS[kind].act,v:o.id}); });
+    }
+  }
+  (S.files||[]).forEach(f=>{ const w=parseDate(f.expires); if(w)
+    out.push({title:(f.name||'Coverage')+' ends',sub:catLabel(f.cat)||f.cat||'Papers',when:w,act:'openfile',id:f.id}); });
+  (S.vehicles||[]).forEach(veh=>(veh.checks||[]).forEach(c=>{ const n=milesLeft(veh,c);
+    if(n!==null&&n<=500) out.push({title:c.title,sub:veh.name,when:null,miles:n,act:'vehiclejump',v:veh.id}); }));
+  return out;
 }
 
 /* ---------- who to call ---------- */
@@ -1946,6 +2028,8 @@ function searchAll(ql){
     if(has(pet.name,pet.breed,parts,pet.vetName,pet.vetPhone))
       add('Pets',pet.name,[pet.breed,pet.vetName],'petjump','',pet.id);
   });
+  (S.inventory||[]).forEach(x=>{ if(has(x.title,x.room,x.serial,x.note))
+    add('Inventory',x.title||'Unnamed item',[x.room,num(x.value)?money(num(x.value)):''],'inv',x.id); });
   (S.fuel||[]).forEach(f=>{ if(has(f.vendor,f.note,f.date))
     add('Fuel',fmtDate(f.date),[f.gallons?f.gallons+' gal':'',f.vendor,f.note],'fuel',f.id); });
   (S.budget||[]).forEach(l=>{ if(has(l.name))
@@ -2043,14 +2127,20 @@ function viewSeasons(){
   </div>
   ${isCurrent?'':`<p class="hint">A past year. What you checked then stays as a record.</p>`}
   ${(()=>{ if(!isCurrent) return '';
-    const up=datedKeyDates().filter(k=>daysAway(k.when)<=120).slice(0,4);
+    // everything with a date across the app — key dates, pets, vehicles, equipment, warranties — plus mileage service
+    const up=upcomingAll().filter(x=>x.when?(daysAway(x.when)>=-30&&daysAway(x.when)<=60):true)
+      .sort((p,q)=>(p.when?daysAway(p.when):Math.min(0,p.miles/100))-(q.when?daysAway(q.when):Math.min(0,q.miles/100)));
     if(!up.length) return '';
-    return `<div class="card"><div class="head" style="cursor:default;padding-bottom:6px"><b>Coming up</b><i>dates</i></div>
-      <div class="inner" style="padding-top:0">${up.map(k=>{ const n=daysAway(k.when);
-        return `<div class="row"><button class="body" data-act="keydate" data-id="${k.id}">
-          <div class="t">${esc(k.title)}</div><div class="m">${esc(fmtDate(isoOf(k.when)))}</div></button>
-          <span class="tag ${n<0?'warn':n<=30?'':'link'}" style="align-self:center">${esc(countdown(k.when))}</span></div>`;
-      }).join('')}</div></div>`;
+    const shown=upcomingOpen?up:up.slice(0,6);
+    return `<div class="card"><div class="head" style="cursor:default;padding-bottom:6px"><b>Coming up</b><i>next 60 days</i></div>
+      <div class="inner" style="padding-top:0">${shown.map(x=>{
+        const late=x.when?daysAway(x.when)<0:x.miles<0, soon=x.when?daysAway(x.when)<=30:true;
+        return `<div class="row"><button class="body" data-act="${x.act}" ${x.id?`data-id="${esc(x.id)}"`:''} ${x.v?`data-v="${esc(x.v)}"`:''}>
+          <div class="t">${esc(x.title)}</div><div class="m">${esc([x.sub,x.when?fmtDate(isoOf(x.when)):''].filter(Boolean).join(' · '))}</div></button>
+          <span class="tag ${late?'warn':soon?'':'link'}" style="align-self:center">${esc(x.when?countdown(x.when):milesWord(x.miles))}</span></div>`;
+      }).join('')}
+      ${up.length>6?`<button class="btn" style="margin-top:10px;border-style:dashed" data-act="upcomingmore">${upcomingOpen?'Show fewer':'Show all '+up.length}</button>`:''}
+      </div></div>`;
   })()}
   ${due}
   ${(()=>{
@@ -2149,9 +2239,10 @@ function lineSpent(l,y){
   const e=(l.entries||[]).filter(x=>yearOf(x.date)===y).reduce((s,x)=>s+num(x.amount),0);
   const b=(S.buy||[]).filter(x=>x.lineId===l.id&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
   const f=(S.fuel||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+fuelCost(x),0);
-  return e+b+f;
+  const r=(S.logs||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+num(x.cost),0);
+  return e+b+f+r;
 }
-const logSpent=y=>S.logs.filter(l=>yearOf(l.date)===y).reduce((s,l)=>s+num(l.cost),0);
+const logSpent=y=>S.logs.filter(l=>!l.lineId&&yearOf(l.date)===y).reduce((s,l)=>s+num(l.cost),0);   // records on a line count there instead
 const fuelCost=f=>num(f.total)||num(f.gallons)*num(f.price);
 const unassignedFuel=y=>(S.fuel||[]).filter(x=>!x.lineId&&yearOf(x.date)===y).reduce((s,x)=>s+fuelCost(x),0);
 const unassignedBuys=y=>(S.buy||[]).filter(x=>!x.lineId&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
@@ -2203,7 +2294,7 @@ function viewBudget(){
         ${editing?`<button class="icb" data-act="lineedit" data-id="${l.id}" aria-label="Edit">${I.pencil}</button>
         <button class="icb" data-act="delline" data-id="${l.id}" aria-label="Remove">${I.trash}</button>`:''}
       </div>${bar(sp,pl)}</div>`; }).join('')}
-    ${fromLogs?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">From service records</div><div class="m">${money(fromLogs)} · costs entered on records this year</div></div></div>`:''}
+    ${fromLogs?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">From service records</div><div class="m">${money(fromLogs)} · records not on a budget line — pick one when you edit a record</div></div></div>`:''}
     ${loose?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">Purchases not on a line</div><div class="m">${money(loose)}</div></div></div>`:''}
     ${looseFuel?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">Fuel not on a line</div><div class="m">${money(looseFuel)} · put a delivery on a line below</div></div></div>`:''}
     <button class="btn dash" style="margin-top:10px" data-act="newline">${I.plus} Add a budget line</button>
@@ -2256,6 +2347,24 @@ function fuelHTML(y){
 }
 
 /* ---------- Gear ---------- */
+function duesHTML(kind,o,blurb){
+  const dues=o.dues||[];
+  return `<h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Dates</h3>
+    ${dues.length?'':`<p class="hint" style="margin:0 0 6px">${blurb}</p>`}
+    ${dues.map(du=>{ const w=nextDue(du), n=w?daysAway(w):null;
+      return `<div style="display:grid;gap:6px;padding:8px 0;border-bottom:1px solid var(--rule)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="title" value="${esc(du.title)}" placeholder="What's due" style="flex:1">
+          ${w?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="flex:0 0 auto">${esc(countdown(w))}</span>`:''}
+          ${editing?`<button class="icb" data-act="deldue" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" aria-label="Remove this date">${I.trash}</button>`:''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <input type="date" data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="date" value="${esc(du.date)}" style="flex:1">
+          <select data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="every" style="flex:1">${
+            DUE_EVERY.map(([v,l])=>`<option value="${v}" ${+du.every===v?'selected':''}>${l}</option>`).join('')}</select>
+        </div></div>`; }).join('')}
+    <button class="btn dash" style="margin-top:8px" data-act="adddue" data-kind="${kind}" data-id="${o.id}">${I.plus} Add a date</button>`;
+}
 function maintCardsHTML(cfg){
   const items=cfg.items||[], done=cfg.done||{}, y=cfg.y;
   return items.map(e=>{
@@ -2272,6 +2381,7 @@ function maintCardsHTML(cfg){
             <input data-act="${cfg.actField}" data-id="${e.id}" data-f="model" value="${esc(e.model)}" placeholder="Model">
           </div>
           <input data-act="${cfg.actField}" data-id="${e.id}" data-f="serial" value="${esc(e.serial)}" placeholder="${cfg.serialLabel}">
+          ${cfg.miles?`<label class="lbl" style="margin:0">Current mileage<input data-act="${cfg.actField}" data-id="${e.id}" data-f="odo" data-rerender="1" value="${esc(e.odo||'')}" placeholder="e.g. 84,200" inputmode="numeric"></label>`:''}
         </div>
         <h3 style="font:700 17px 'Barlow Condensed';margin:0 0 6px">Sizes and part numbers</h3>
         ${e.specs.map(s=>`<div class="specrow">
@@ -2292,10 +2402,18 @@ function maintCardsHTML(cfg){
               <input data-act="${cfg.actChk}" data-id="${e.id}" data-cid="${c.id}" data-f="freq" value="${esc(c.freq)}"
                 style="border:0;background:none;padding:0;min-height:0;border-radius:0;font-size:13px;color:var(--ink70)">
               ${on&&tickWords(done[e.id+':'+c.id+':'+y])?`<div class="m">${esc(tickWords(done[e.id+':'+c.id+':'+y]))}</div>`:''}
+              ${cfg.miles?(()=>{ const left=milesLeft(e,c);
+                return `<div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
+                  <input data-act="${cfg.actChk}" data-id="${e.id}" data-cid="${c.id}" data-f="miles" data-rerender="1" value="${esc(c.miles||'')}" placeholder="Every … mi" inputmode="numeric" style="flex:1;min-width:90px;min-height:34px;padding:6px 8px;font-size:13px">
+                  <input data-act="${cfg.actChk}" data-id="${e.id}" data-cid="${c.id}" data-f="lastMi" data-rerender="1" value="${esc(c.lastMi||'')}" placeholder="Last done at … mi" inputmode="numeric" style="flex:1;min-width:110px;min-height:34px;padding:6px 8px;font-size:13px">
+                  ${left!==null?`<span class="tag ${left<0?'warn':left<=500?'':'link'}">${esc(milesWord(left))}</span>`:''}
+                </div>`; })():''}
             </div>
             ${editing?`<button class="icb" data-act="${cfg.actDelChk}" data-id="${e.id}" data-cid="${c.id}" aria-label="Remove this check">${I.trash}</button>`:''}</div>`;
         }).join('')}
         ${editing?`<button class="btn" style="margin-top:10px" data-act="${cfg.actAddChk}" data-id="${e.id}">${I.plus} Add a check</button>`:''}
+
+        ${duesHTML(cfg.kind,e,cfg.dueBlurb)}
 
         <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Notes</h3>
         <textarea rows="3" data-act="${cfg.actField}" data-id="${e.id}" data-f="notes" placeholder="Quirks, settings, where you bought it, what the repair guy said">${esc(e.notes||'')}</textarea>
@@ -2335,6 +2453,8 @@ function petCardsHTML(){
           <input data-act="petf" data-id="${pet.id}" data-f="vetPhone" value="${esc(pet.vetPhone)}" placeholder="Phone" inputmode="tel" style="flex:0 0 40%">
         </div>
         ${pet.vetPhone?`<a class="btn" style="margin-top:8px;display:inline-flex;width:auto;gap:6px" href="tel:${esc(pet.vetPhone.replace(/[^\d+]/g,''))}">${I.phone} Call ${esc(pet.vetName||'the vet')}</a>`:''}
+
+        ${duesHTML('pet',pet,'Vaccines, heartworm and flea meds, the dog park renewal — anything with a date.')}
 
         <h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Membership and details</h3>
         <p class="hint" style="margin:0 0 8px">A dog park membership, a microchip number, a license — anything worth keeping.</p>
@@ -2388,7 +2508,8 @@ function viewGear(){
     ${maintCardsHTML({items:S.vehicles||[], done:S.vehicleDone||{}, y, openId:openVehicle, noun:'vehicle', addAlways:true,
       actOpen:'vehicle', actField:'veh', actSpec:'vspec', actAddSpec:'addvspec', actDelSpec:'delvspec',
       actChk:'vchk', actAddChk:'addvchk', actDelChk:'delvchk', actToggle:'togglevehicle',
-      actDel:'delvehicle', actAddNew:'addvehicle', serialLabel:'VIN or plate', addLabel:'Add a vehicle', filePrefix:'veh:'})}
+      actDel:'delvehicle', actAddNew:'addvehicle', serialLabel:'VIN or plate', addLabel:'Add a vehicle', filePrefix:'veh:', kind:'veh', miles:true,
+      dueBlurb:'Registration renewal, insurance, inspection — anything with a date.'})}
   </section>
 
   <section class="zone">
@@ -2397,7 +2518,8 @@ function viewGear(){
     ${maintCardsHTML({items:S.equipment||[], done:S.equipDone||{}, y, openId:openEquip, noun:'equipment',
       actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
       actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
-      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment', filePrefix:'eq:'})}
+      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment', filePrefix:'eq:', kind:'eq',
+      dueBlurb:'A service contract, a filter subscription, anything with a date.'})}
   </section>
 
   <section class="zone">
@@ -2466,6 +2588,17 @@ function viewHouse(){
   ${filesSection('Plans','Nothing yet. Upload the blueprints, the plat survey, a room layout — anything you want on hand.')}
   <h3 class="sub">Papers</h3>
   ${filesSection('Papers','Nothing yet. The deed, the well report, warranties, manuals.')}</section>
+
+  <section class="zone"><h2 class="sec">Home inventory${(()=>{ const t=(S.inventory||[]).reduce((a,x)=>a+num(x.value),0);
+      return t?`<em>${money(t)} listed</em>`:''; })()}</h2>
+  <p class="hint">Valuables with a photo, what you paid and the serial number. If there's ever a fire or a break-in, this is what the insurance adjuster asks for.</p>
+  ${(S.inventory||[]).map(x=>`<div class="row">
+    <button class="body" data-act="inv" data-id="${x.id}">
+      <div class="t">${esc(x.title||'Unnamed item')}</div>
+      <div class="m">${[x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',(x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):''].filter(Boolean).map(esc).join(' · ')}</div>
+    </button></div>`).join('')}
+  ${(S.inventory||[]).length?'':'<p class="hint" style="margin:6px 0">Nothing listed yet.</p>'}
+  <button class="btn dash" style="margin-top:10px" data-act="newinv">${I.plus} Add an item</button></section>
 
   <section class="zone"><h2 class="sec">Who to call</h2>
   ${S.contacts.map(c=>`<div class="row">
@@ -2622,6 +2755,8 @@ function modalHTML(){
         <input data-m="cost" value="${esc(d.cost)}" placeholder="Cost" inputmode="decimal">
       </div>
       <input data-m="doc" value="${esc(d.doc)}" placeholder="Invoice, report or permit number">
+      ${(S.budget||[]).length?`<label class="lbl">Budget line<select data-m="lineId"><option value="">Not on a line</option>${
+        S.budget.map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name||'Unnamed')}</option>`).join('')}</select></label>`:''}
       ${stripHTML(d.photos)}
       <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Take or add a photo of the paperwork'}</button>
       <button class="btn solid" data-act="done">Done</button>
@@ -2792,11 +2927,30 @@ function modalHTML(){
       <label class="lbl">Name<input data-m="name" value="${esc(d.name)}" placeholder="What is it"></label>
       ${link?`<label class="lbl">Web address<input data-m="url" value="${esc(d.url)}" placeholder="https://" inputmode="url" autocapitalize="none" spellcheck="false"></label>`:''}
       <label class="lbl">Where it belongs<select data-m="cat">${
-        (catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
+        (/^(eq|veh|pet):/.test(d.cat||'')&&catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
           .map(([val,lab])=>`<option value="${esc(val)}" ${d.cat===val?'selected':''}>${esc(lab)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note)}" placeholder="A note about it">
+      <label class="lbl">Warranty or coverage ends <span style="font-weight:400;color:var(--ink70)">(optional)</span><input type="date" data-m="expires" value="${esc(d.expires||'')}"></label>
       ${d.stored?`<p class="hint" style="margin:0">${esc(prettySize(d.size))}${!cloud.code?' · on this phone':d.shared===false?' · too big to sync, stays on this phone':' · shared with the other phones'}</p>`:''}
       <button class="btn solid" data-act="done">Done</button>`,true);
+  }
+  if(modal.kind==='inv'){
+    const d=modal.draft;
+    return sheet(modal.isNew?'New item':'Edit item',`
+      <label class="lbl">What it is<input data-m="title" value="${esc(d.title)}" placeholder="TV, ring, table saw"></label>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Room<input data-m="room" value="${esc(d.room)}" placeholder="Living room"></label>
+        <label class="lbl" style="flex:1">Value<input data-m="value" value="${esc(d.value)}" placeholder="$" inputmode="decimal"></label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Bought<input type="date" data-m="bought" value="${esc(d.bought)}"></label>
+        <label class="lbl" style="flex:1">Serial / model<input data-m="serial" value="${esc(d.serial)}"></label>
+      </div>
+      <input data-m="note" value="${esc(d.note)}" placeholder="Where you bought it, anything else">
+      ${stripHTML(d.photos)}
+      <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Photo of the item or the receipt'}</button>
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delinv" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this item'}</button>`}`,true);
   }
   if(modal.kind==='fuel'){
     const d=modal.draft, cost=fuelCost(d);
@@ -2823,7 +2977,7 @@ function modalHTML(){
       ${L===null?'<p class="hint" style="margin:0">Fetching…</p>':L.length?L.map(x=>`<div class="row">
         <button class="body" data-act="snaprestore" data-id="${esc(x.id)}">
           <div class="t">${esc(fmtDate(x.at))}${x.by?' · '+esc(x.by):''}</div>
-          <div class="m">${esc(x.id)} · ${x.n} items and records · ${prettySize(x.size)}</div></button>
+          <div class="m">${esc(x.id)} · ${x.n} items and records · ${prettySize(x.size)}${x.broken?' · incomplete, cannot restore':''}</div></button>
         <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="snaprestore" data-id="${esc(x.id)}">Restore</button>
       </div>`).join(''):'<p class="hint" style="margin:0">Nothing kept yet. The first copy is written a few seconds after sharing connects, then once a week.</p>'}
       ${L&&L.length?'':`<button class="btn" data-act="snapnow">Keep a copy now</button>`}`);
@@ -2981,6 +3135,11 @@ function commitDraft(){
     const rec={id:d.id,title:d.title,est:num(d.est),note:d.note||'',url:d.url||'',lineId:d.lineId||'',bought:d.bought||null,paid:num(d.paid)};
     const i=S.buy.findIndex(x=>x.id===d.id);
     if(i>=0) S.buy[i]={...S.buy[i],...rec}; else S.buy.push(rec);
+  }else if(modal.kind==='inv'){
+    const has=(d.title||'').trim()||num(d.value)||(d.photos&&d.photos.length);
+    const rec={...d,photos:[...(d.photos||[])]};
+    const i=(S.inventory=S.inventory||[]).findIndex(x=>x.id===d.id);
+    if(i>=0) S.inventory[i]=rec; else if(has) S.inventory.push(rec); else return;
   }else if(modal.kind==='fileedit'){
     const i=S.files.findIndex(x=>x.id===d.id);
     if(!d.stored&&!(d.url||'').trim()&&!(d.name||'').trim()){ if(i>=0) S.files.splice(i,1); return; }
@@ -3006,7 +3165,7 @@ function commitDraft(){
     if(i>=0) S.contacts[i]=rec; else if(has) S.contacts.push(rec); else return;
   }else if(modal.kind==='log'){
     const has=(d.what||'').trim()||(d.who||'').trim()||(d.cost||'').trim()||(d.doc||'').trim()||(d.photos&&d.photos.length);
-    const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,
+    const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,lineId:d.lineId||'',
       photos:[...(d.photos||[])],date:((d.date||'')+' '+(d.time||'')).trim(),at:d.at||Date.now()};
     const i=S.logs.findIndex(x=>x.id===d.id);
     if(i>=0) S.logs[i]=rec; else if(has) S.logs.unshift(rec); else return;
@@ -3051,11 +3210,13 @@ document.addEventListener('input',async e=>{
     if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='echk'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
     if(ck){ ck[el.dataset.f]=el.value; saveSoon(); } return; }
-  if(a==='veh'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); } return; }
+  if(a==='veh'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='vspec'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id), sp=q2&&q2.specs.find(x=>x.id===el.dataset.sid);
     if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='vchk'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
-    if(ck){ ck[el.dataset.f]=el.value; saveSoon(); } return; }
+    if(ck){ ck[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
+  if(a==='duef'){ const o=ownerOf(el.dataset.kind,el.dataset.id), du=o&&(o.dues||[]).find(x=>x.id===el.dataset.did);
+    if(du){ du[el.dataset.f]=el.dataset.f==='every'?+el.value:el.value; saveSoon(); if(el.dataset.f!=='title') render(); } return; }
   if(a==='petf'){ const p2=S.pets.find(x=>x.id===el.dataset.id); if(p2){
       if(el.dataset.f==='name'&&p2.name!==el.value){
         const oldKey=petPhotoKey(p2.name), newTag=petPhotoTag(el.value);
@@ -3149,7 +3310,10 @@ document.addEventListener('click',async e=>{
     return; }
   if(a==='togglevehicle'){ const k=id+':'+btn.dataset.cid+':'+S.activeYear;
     if(S.vehicleDone[k]){ delete S.vehicleDone[k]; render(); save(); return; }
-    S.vehicleDone[k]=tick(); render(); save();
+    S.vehicleDone[k]=tick();
+    { const vv=S.vehicles.find(x=>x.id===id), cc=vv&&vv.checks.find(c=>c.id===btn.dataset.cid);
+      if(cc&&num(vv.odo)&&num(cc.miles)) cc.lastMi=vv.odo; }   // done now, at today's mileage
+    render(); save();
     const v2=S.vehicles.find(x=>x.id===id), ck=v2&&v2.checks.find(c=>c.id===btn.dataset.cid);
     if(ck) setNote(`Ticked for ${S.activeYear}.`,'ok',{label:'Add what you did',act:'log',id:v2.id,sub:v2.name,what:ck.title});
     return; }
@@ -3297,6 +3461,22 @@ document.addEventListener('click',async e=>{
     deleted(v2.name,()=>{ S.vehicles.splice(i,0,v2); Object.assign(S.vehicleDone,keep);
       moved.forEach(f=>f.cat='veh:'+v2.id); }); return; }
 
+  if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
+  if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[]}}; render(); return; }
+  if(a==='inv'){ const x=(S.inventory||[]).find(z=>z.id===id); if(!x) return;
+    modalAt=Date.now(); modal={kind:'inv',draft:{...x,photos:[...(x.photos||[])]}}; render(); return; }
+  if(a==='delinv'){
+    if(modal&&modal.kind==='inv'&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=(S.inventory||[]).findIndex(x=>x.id===id); if(i<0) return;
+    if(modal&&modal.kind==='inv') modal=null;   // drop the sheet without committing, or it writes the item back
+    const [x]=S.inventory.splice(i,1);
+    deleted(x.title||'that item',()=>S.inventory.splice(i,0,x)); return; }
+  if(a==='adddue'){ const o=ownerOf(btn.dataset.kind,id); if(!o) return;
+    (o.dues=o.dues||[]).push({id:uid(),title:'',date:'',every:0}); render(); save(); return; }
+  if(a==='deldue'){ const o=ownerOf(btn.dataset.kind,id); if(!o||!o.dues) return;
+    const i=o.dues.findIndex(x=>x.id===btn.dataset.did); if(i<0) return;
+    const [du]=o.dues.splice(i,1);
+    deleted(du.title?'\u201c'+du.title+'\u201d':'that date',()=>o.dues.splice(i,0,du)); return; }
   if(a==='addpetspec'){ const p2=S.pets.find(x=>x.id===id); if(!p2) return;
     p2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
   if(a==='delpetspec'){ const p2=S.pets.find(x=>x.id===id); if(!p2) return;
@@ -3526,7 +3706,7 @@ function saveFile(text,name,type){
    so a restore can be checked over before it replaces what is here. */
 function normalize(st){
   if(!st||typeof st!=='object') throw new Error('not a House HQ state');
-  for(const k of ['tasks','yearly','equipment','vehicles','pets','specs','logs','photos','contacts','budget','buy','files','keyDates','fuel'])
+  for(const k of ['tasks','yearly','equipment','vehicles','pets','inventory','specs','logs','photos','contacts','budget','buy','files','keyDates','fuel'])
     if(!Array.isArray(st[k])) st[k]=[];
   if(!st.keyDates.length) st.keyDates=keyDateSeed();
   st.tasks.forEach(t=>{ if(t.contactId===undefined) t.contactId=''; });
@@ -3623,6 +3803,11 @@ function buildHandoff(){
     <p class="sub">${esc(pet.breed||'')}</p>
     ${hoTable([...(pet.vetName||pet.vetPhone?[['Vet',[pet.vetName,pet.vetPhone].filter(Boolean).join(' · ')]]:[]),
       ...(pet.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v])])}`).join('');
+  const invTotal=(S.inventory||[]).reduce((a,x)=>a+num(x.value),0);
+  const inventory=(S.inventory||[]).length?hoTable((S.inventory||[]).map(x=>[x.title||'Unnamed item',
+    [x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',x.serial?'serial '+x.serial:'',
+     (x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):'',x.note].filter(Boolean).join(' · ')]))
+    +(invTotal?`<p class="sub">Total listed: ${money(invTotal)}</p>`:''):'';
   const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
   const logs=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
@@ -3660,6 +3845,7 @@ ${hoSection('Sizes and part numbers',hoTable(sizes))}
 ${hoSection('Equipment',gear)}
 ${hoSection('Vehicles',vehicles)}
 ${hoSection('Pets',pets)}
+${hoSection('Home inventory',inventory)}
 ${hoSection('Who to call',contacts)}
 ${hoSection('Service history',hoTable(logs))}
 ${hoSection('Fuel deliveries',hoTable(fuelRows))}
@@ -3727,6 +3913,31 @@ function buildICS(){
       'BEGIN:VALARM','ACTION:DISPLAY',icsLine(`DESCRIPTION:${icsText(k.title+' — a week out')}`),'TRIGGER:-P6DT15H','END:VALARM',
       'END:VEVENT');
     count++;
+  }
+  // one all-day event with a same-day and a week-out reminder
+  const pushDay=(uidKey,when,title,desc,rule)=>{
+    const d=`${when.getFullYear()}${pad(when.getMonth()+1)}${pad(when.getDate())}`;
+    const after=new Date(when.getTime()+DAY);
+    const dEnd=`${after.getFullYear()}${pad(after.getMonth()+1)}${pad(after.getDate())}`;
+    L.push('BEGIN:VEVENT',`UID:${uidKey}@househq`,`DTSTAMP:${stamp}`,`DTSTART;VALUE=DATE:${d}`,`DTEND;VALUE=DATE:${dEnd}`);
+    if(rule) L.push(`RRULE:${rule}`);
+    L.push(icsLine(`SUMMARY:${icsText(title)}`),icsLine(`DESCRIPTION:${icsText(desc||'')}`),
+      'BEGIN:VALARM','ACTION:DISPLAY',icsLine(`DESCRIPTION:${icsText(title)}`),'TRIGGER:PT9H','END:VALARM',
+      'BEGIN:VALARM','ACTION:DISPLAY',icsLine(`DESCRIPTION:${icsText(title+' — a week out')}`),'TRIGGER:-P6DT15H','END:VALARM',
+      'END:VEVENT');
+    count++;
+  };
+  // dates on pets, vehicles and equipment
+  for(const kind of Object.keys(OWNER_KINDS)) for(const o of OWNER_KINDS[kind].list()) for(const du of (o.dues||[])){
+    const when=nextDue(du); if(!when||!(du.title||'').trim()) continue;
+    const m=+du.every||0;
+    const rule=!m?'':m%12===0?`FREQ=YEARLY${m/12>1?';INTERVAL='+(m/12):''}`:`FREQ=MONTHLY${m>1?';INTERVAL='+m:''}`;
+    pushDay('due-'+du.id,when,(o.name?o.name+': ':'')+du.title,dueEveryWord(m),rule);
+  }
+  // warranty and coverage end dates on documents
+  for(const f of (S.files||[])){
+    const when=parseDate(f.expires); if(!when||when<today0()) continue;
+    pushDay('exp-'+f.id,when,(f.name||'Coverage')+' ends',catLabel(f.cat)||f.cat||'','');
   }
   L.push('END:VCALENDAR');
   return {text:L.join('\r\n')+'\r\n',count};
