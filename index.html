@@ -1592,14 +1592,12 @@ header>.hrow,header>.gauge,header>.seasons{position:relative;z-index:1}
 .seasonfx .drop{top:0;width:1.5px;border-radius:2px;background:linear-gradient(#BFE0F2,transparent);animation:fxrain linear infinite}
 @keyframes fxshine{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.75;transform:scale(1.18)}}
 @keyframes fxspin{to{transform:rotate(360deg)}}
-.seasonfx .dogrun{bottom:4px;animation:fxdogrun 9s linear infinite}
-.seasonfx .dogrun.back{transform:scaleX(-1);animation-name:fxdogback}
+.seasonfx .dogrun{bottom:4px;left:-20%}
+.seasonfx .dogrun.leftward .patch{display:none}
 .seasonfx .dogrun svg{display:block;animation:fxdogbob .34s ease-in-out infinite}
 .seasonfx .legA,.seasonfx .legB{transform-box:fill-box;transform-origin:50% 0}
 .seasonfx .legA{animation:fxlegA .34s ease-in-out infinite}
 .seasonfx .legB{animation:fxlegB .34s ease-in-out infinite}
-@keyframes fxdogrun{0%{left:-20%}62%{left:108%}100%{left:108%}}
-@keyframes fxdogback{0%{left:108%}62%{left:-20%}100%{left:-20%}}
 .seasonfx .sky{inset:0;background:linear-gradient(to bottom,rgba(110,185,240,.55),rgba(110,185,240,.12) 70%,rgba(110,185,240,0))}
 .seasonfx .sky.night{background:linear-gradient(to bottom,rgba(8,16,48,.7),rgba(8,16,48,.2) 70%,rgba(8,16,48,0))}
 .seasonfx .star{border-radius:50%;background:#FFF6D6;box-shadow:0 0 4px #FFF6D6;animation:fxtwinkle ease-in-out infinite}
@@ -1920,14 +1918,16 @@ const SCARECROW_SVG=`<svg viewBox="0 0 50 100" width="48" height="96">
   <line x1="29" y1="15" x2="26" y2="12" stroke="#2B1608" stroke-width="1.4" stroke-linecap="round"/>
 </svg>`;
 /* Two dogs that run through every scene but spring: a reddish golden (dark muzzle,
-   grayish-brown floppy ears, cream chest ruff and paws, feathered tail) and a bigger
-   white one with a black patch over the eye. Legs swing in pairs (near-front with far-back). */
+   grayish-brown floppy ears, cream chest ruff and paws, fluffy tail) and a bigger
+   white one with a black patch over her right eye — seen only when she runs right,
+   since that's the side facing you. Legs swing in pairs (near-front with far-back). */
 function dogSVG(c,w){
   const h=Math.round(w*40/64);
   const leg=(x,cls,col)=>`<g class="${cls}"><line x1="${x}" y1="22" x2="${x}" y2="34" stroke="${col}" stroke-width="3.8" stroke-linecap="round"/>${
     c.paw?`<line x1="${x}" y1="34" x2="${x}" y2="35.5" stroke="${c.paw}" stroke-width="4" stroke-linecap="round"/>`:''}</g>`;
   const o=c.outline?`stroke="${c.outline}" stroke-width="1"`:'';
   return `<svg viewBox="0 0 64 40" width="${w}" height="${h}">
+    ${c.outline?`<path d="M15 17 Q6 14 3 5" stroke="${c.outline}" stroke-width="5.6" fill="none" stroke-linecap="round"/>`:''}
     <path d="M15 17 Q6 14 3 5" stroke="${c.body}" stroke-width="${c.fluffy?5:3.6}" fill="none" stroke-linecap="round"/>
     ${c.fluffy?`<path d="M9 12 Q5 9 3 5" stroke="${c.paw}" stroke-width="2" fill="none" stroke-linecap="round" opacity=".8"/>`:''}
     ${leg(20,'legA',c.dark)}${leg(42,'legB',c.dark)}
@@ -1938,13 +1938,13 @@ function dogSVG(c,w){
     <ellipse cx="55.5" cy="14" rx="6" ry="3.8" fill="${c.body}" ${o}/>
     ${c.muzzle?`<ellipse cx="58.3" cy="14.6" rx="3.8" ry="3.1" fill="${c.muzzle}"/>`:''}
     <ellipse cx="44.5" cy="12.5" rx="${c.fluffy?3.4:2.8}" ry="${c.fluffy?6:5}" fill="${c.ear}" transform="rotate(16 44.5 12.5)"/>
-    ${c.patch?`<ellipse cx="50.5" cy="9.5" rx="3.4" ry="3" fill="${c.patch}"/><circle cx="50.9" cy="9.1" r=".6" fill="#fff"/>`
-      :`<circle cx="50.8" cy="9.8" r="1.3" fill="#2B1E16"/>`}
+    <circle cx="50.8" cy="9.8" r="1.3" fill="#2B1E16"/>
+    ${c.patch?`<g class="patch"><ellipse cx="50.5" cy="9.5" rx="3.4" ry="3" fill="${c.patch}"/><circle cx="50.9" cy="9.1" r=".6" fill="#fff"/></g>`:''}
     <circle cx="61.4" cy="13.6" r="1.8" fill="#141010"/>
   </svg>`;
 }
 const DOGS=`<i class="dogrun">${dogSVG({body:'#B8692F',dark:'#8A4F22',ear:'#6B4B35',ruff:'#E3C08F',paw:'#E3C08F',muzzle:'#3B2A20',fluffy:true},50)}</i>`
-  +`<i class="dogrun back" style="animation-delay:-4.2s">${dogSVG({body:'#F5F3EF',dark:'#D9D3C8',ear:'#E6E0D6',outline:'#A9A194',patch:'#1C1C1C'},62)}</i>`;
+  +`<i class="dogrun">${dogSVG({body:'#F5F3EF',dark:'#D9D3C8',ear:'#E6E0D6',outline:'#A9A194',patch:'#1C1C1C'},62)}</i>`;
 /* Summer backdrop: a flat strip of lawn and an oscillating sprinkler */
 const LAWN_STRIP=(()=>{ let d='M0 22 L0 9';
   for(let x=0;x<=400;x+=5) d+=` L${x+2.5} ${3+((x*7)%5)} L${x+5} ${9+((x*3)%3)}`;
@@ -1956,6 +1956,19 @@ const BALL_SVG=`<svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" 
   <path d="M12 12 L22 12 A10 10 0 0 1 17 20.66Z" fill="#E6483C"/><path d="M12 12 L7 20.66 A10 10 0 0 1 2 12Z" fill="#4C9BD9"/>
   <path d="M12 12 L7 3.34 A10 10 0 0 1 17 3.34Z" fill="#F2C14E"/>
   <circle cx="12" cy="12" r="10" fill="none" stroke="#9AA1AB" stroke-width="1"/><circle cx="12" cy="12" r="1.8" fill="#fff" stroke="#9AA1AB" stroke-width=".8"/></svg>`;
+function runDog(el){
+  if(!el.isConnected) return;          // the scene was swapped out; this dog's loop ends here
+  const ltr=Math.random()<.5, dur=4500+Math.random()*2500;
+  el.style.transform=ltr?'':'scaleX(-1)';   // the drawing faces right, so flip it to run left
+  el.classList.toggle('leftward',!ltr);      // running left shows her left side: no patch
+  const run=el.animate([{left:ltr?'-20%':'108%'},{left:ltr?'108%':'-20%'}],{duration:dur,easing:'linear',fill:'forwards'});
+  run.onfinish=()=>setTimeout(()=>runDog(el),800+Math.random()*3200);
+}
+function startDogs(){
+  if(!Element.prototype.animate) return;
+  if(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('#seasonfx .dogrun').forEach((el,i)=>setTimeout(()=>runDog(el),i*1200+Math.random()*1800));
+}
 function lightsSVG(){
   const W=640,S=9,seg=W/S,A=13,base=7;
   const cols=['#E6483C','#F2C14E','#4CAF7D','#4C9BD9','#D9578A'];
@@ -2039,7 +2052,7 @@ function renderHeader(){
   // Only rebuild the falling/growing bits when the effect actually changes, so the animation loops smoothly
   // instead of restarting from frame zero on every keystroke or checkbox tap.
   const fxKey=tab==='seasons'?seasonSel+(isDarkTheme()?':night':''):'';
-  if(fxKey!==lastFX){ lastFX=fxKey; document.getElementById('seasonfx').innerHTML=fxKey?seasonFXHTML(seasonSel):''; }
+  if(fxKey!==lastFX){ lastFX=fxKey; document.getElementById('seasonfx').innerHTML=fxKey?seasonFXHTML(seasonSel):''; startDogs(); }
 }
 
 function checkbox(on,act,data,label){
