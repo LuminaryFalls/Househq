@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -691,7 +691,10 @@ async function ensureLogin(FB,auth){
   for(;;){
     const {u,p}=await loginForm(err);
     try{ return (await FB.signInWithEmailAndPassword(auth,u,p)).user; }
-    catch(e){ err='That email or password did not work. Try again.'; }
+    catch(e){ const c=(e&&e.code)||'';
+      err=c==='auth/network-request-failed'?'No connection right now. Check your signal and try again.'
+        :c==='auth/too-many-requests'?'Too many tries. Wait a few minutes, then try again.'
+        :'That email or password did not work. Try again.'; }
   }
 }
 
@@ -1257,15 +1260,15 @@ function datedKeyDates(){
     .filter(k=>k.when).sort((a,b)=>a.when-b.when);
 }
 /* ---------- due dates on pets, vehicles and equipment ----------
-   A due is {id,title,date,every} where every is in MONTHS (0 = once), so a
-   monthly heartworm pill and a yearly registration both fit. */
+   A due is {id,title,date,every,doneAt,doneBy} where every is in MONTHS (0 = once),
+   so a monthly heartworm pill and a yearly registration both fit. The date is when
+   it's next due, and it stays put — a missed vaccine shows as overdue until you tap
+   Done, which rolls a repeating one forward from the day you actually did it. */
 const DUE_EVERY=[[0,'Once'],[1,'Every month'],[3,'Every 3 months'],[6,'Every 6 months'],[12,'Every year'],[24,'Every 2 years'],[36,'Every 3 years']];
 const dueEveryWord=m=>(DUE_EVERY.find(([v])=>v===+m)||[0,'every '+m+' months'])[1];
 function nextDue(du){
-  let d=parseDate(du&&du.date); if(!d) return null;
-  const m=+((du&&du.every)||0);
-  if(m>0){ const t=today0(); let g=0; while(d<t&&g++<600) d=addMonths(d,m); }
-  return d;
+  if(!du||(du.doneAt&&!+du.every)) return null;   // a one-off that has been done
+  return parseDate(du.date);
 }
 const OWNER_KINDS={pet:{list:()=>S.pets||[],word:'Pet',act:'petjump'},veh:{list:()=>S.vehicles||[],word:'Vehicle',act:'vehiclejump'},eq:{list:()=>S.equipment||[],word:'Equipment',act:'equipjump'}};
 const ownerOf=(kind,id)=>((OWNER_KINDS[kind]||{list:()=>[]}).list()).find(x=>x.id===id);
@@ -1284,7 +1287,7 @@ function upcomingAll(){
   for(const kind of Object.keys(OWNER_KINDS)){
     for(const o of OWNER_KINDS[kind].list()){
       (o.dues||[]).forEach(du=>{ const w=nextDue(du); if(w&&(du.title||'').trim())
-        out.push({title:du.title,sub:(o.name||OWNER_KINDS[kind].word),when:w,act:OWNER_KINDS[kind].act,v:o.id}); });
+        out.push({title:du.title,sub:(o.name||OWNER_KINDS[kind].word),when:w,act:OWNER_KINDS[kind].act,v:o.id,due:true}); });
     }
   }
   (S.files||[]).forEach(f=>{ const w=parseDate(f.expires); if(w)
@@ -1323,6 +1326,10 @@ function recentChanges(n){
     const veh=(S.vehicles||[]).find(z=>z.id===vid), c=veh&&veh.checks.find(z=>z.id===cid);
     if(c) push(t.at,t.by,'ticked '+c.title+' on the '+veh.name.toLowerCase()); }
   (S.tasks||[]).forEach(t=>{ if(t.done&&t.doneAt) push(t.doneAt,t.doneBy,'finished '+t.title); });
+  (S.inventory||[]).forEach(x=>push(x.at,x.by,'added '+(x.title||'an item')+' to the inventory'));
+  (S.pets||[]).forEach(p=>push(p.addedAt,p.addedBy,'added '+(p.name||'a pet')+' to Pets'));
+  for(const kind of Object.keys(OWNER_KINDS)) for(const o of OWNER_KINDS[kind].list()) (o.dues||[]).forEach(du=>{
+    if(du.doneTs) push(du.doneTs,du.doneBy,'marked '+(du.title||'a date')+' done'+(o.name?' for '+o.name:'')); });
   (S.logs||[]).forEach(l=>push(l.at||l.date,l.who,'recorded '+(l.subject||'a service')));
   (S.photos||[]).forEach(p=>push(p.uploadedAt||p.addedAt,p.by,'added a photo'+(p.caption?' of '+p.caption:'')));
   (S.fuel||[]).forEach(f=>push(f.at,f.by,'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
@@ -1978,8 +1985,8 @@ function logHTML(logs,showSubject){
     <button class="logbody" data-act="editlog" data-id="${l.id}" aria-label="Open this record">
       ${showSubject&&l.subject?`<div class="w"><b>${esc(l.subject)}</b></div>`:''}
       ${l.what?`<div class="w">${esc(l.what)}</div>`:''}
-      ${(l.cost||l.doc)?`<div class="meta">${l.cost?'$'+esc(l.cost):''}${l.cost&&l.doc?' · ':''}${l.doc?esc(l.doc):''}</div>`:''}
-      ${l.what||l.cost||l.doc||(showSubject&&l.subject)?'':`<div class="meta">Tap to add details</div>`}
+      ${(l.cost||l.doc||l.odo)?`<div class="meta">${[l.cost?'$'+esc(l.cost):'',num(l.odo)?esc(num(l.odo).toLocaleString())+' mi':'',l.doc?esc(l.doc):''].filter(Boolean).join(' · ')}</div>`:''}
+      ${l.what||l.cost||l.doc||l.odo||(showSubject&&l.subject)?'':`<div class="meta">Tap to add details</div>`}
     </button>
     ${stripHTML(l.photos)}</div>`).join('')}</div>`;
 }
@@ -2128,7 +2135,7 @@ function viewSeasons(){
   ${isCurrent?'':`<p class="hint">A past year. What you checked then stays as a record.</p>`}
   ${(()=>{ if(!isCurrent) return '';
     // everything with a date across the app — key dates, pets, vehicles, equipment, warranties — plus mileage service
-    const up=upcomingAll().filter(x=>x.when?(daysAway(x.when)>=-30&&daysAway(x.when)<=60):true)
+    const up=upcomingAll().filter(x=>x.when?((x.due||daysAway(x.when)>=-30)&&daysAway(x.when)<=60):true)
       .sort((p,q)=>(p.when?daysAway(p.when):Math.min(0,p.miles/100))-(q.when?daysAway(q.when):Math.min(0,q.miles/100)));
     if(!up.length) return '';
     const shown=upcomingOpen?up:up.slice(0,6);
@@ -2347,6 +2354,11 @@ function fuelHTML(y){
 }
 
 /* ---------- Gear ---------- */
+function duesRows(o){
+  return (o.dues||[]).filter(du=>(du.title||'').trim()).map(du=>{ const w=nextDue(du);
+    return [du.title,[w?'next '+fmtDate(isoOf(w)):(du.doneAt?'done':''),dueEveryWord(du.every).toLowerCase(),
+      du.doneAt?'last done '+fmtDate(du.doneAt):''].filter(Boolean).join(' · ')]; });
+}
 function duesHTML(kind,o,blurb){
   const dues=o.dues||[];
   return `<h3 style="font:700 17px 'Barlow Condensed';margin:18px 0 6px">Dates</h3>
@@ -2355,14 +2367,18 @@ function duesHTML(kind,o,blurb){
       return `<div style="display:grid;gap:6px;padding:8px 0;border-bottom:1px solid var(--rule)">
         <div style="display:flex;gap:8px;align-items:center">
           <input data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="title" value="${esc(du.title)}" placeholder="What's due" style="flex:1">
-          ${w?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="flex:0 0 auto">${esc(countdown(w))}</span>`:''}
+          ${w?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="flex:0 0 auto">${n<0?'overdue · ':''}${esc(countdown(w))}</span>`
+            :du.doneAt?`<span class="tag link" style="flex:0 0 auto">done</span>`:''}
           ${editing?`<button class="icb" data-act="deldue" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" aria-label="Remove this date">${I.trash}</button>`:''}
         </div>
         <div style="display:flex;gap:8px">
           <input type="date" data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="date" value="${esc(du.date)}" style="flex:1">
           <select data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="every" style="flex:1">${
             DUE_EVERY.map(([v,l])=>`<option value="${v}" ${+du.every===v?'selected':''}>${l}</option>`).join('')}</select>
-        </div></div>`; }).join('')}
+          ${w?`<button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="duedone" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}">${I.check} Done</button>`:''}
+        </div>
+        ${du.doneAt?`<div class="m">Last done ${esc(fmtDate(du.doneAt))}${du.doneBy?' by '+esc(du.doneBy):''}</div>`:''}
+        </div>`; }).join('')}
     <button class="btn dash" style="margin-top:8px" data-act="adddue" data-kind="${kind}" data-id="${o.id}">${I.plus} Add a date</button>`;
 }
 function maintCardsHTML(cfg){
@@ -2598,7 +2614,8 @@ function viewHouse(){
       <div class="m">${[x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',(x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):''].filter(Boolean).map(esc).join(' · ')}</div>
     </button></div>`).join('')}
   ${(S.inventory||[]).length?'':'<p class="hint" style="margin:6px 0">Nothing listed yet.</p>'}
-  <button class="btn dash" style="margin-top:10px" data-act="newinv">${I.plus} Add an item</button></section>
+  <div class="btns h"><button class="btn dash" data-act="newinv">${I.plus} Add an item</button>
+    ${(S.inventory||[]).length?`<button class="btn" data-act="csv" data-v="inventory">${I.grid} Copy for a spreadsheet</button>`:''}</div></section>
 
   <section class="zone"><h2 class="sec">Who to call</h2>
   ${S.contacts.map(c=>`<div class="row">
@@ -2755,6 +2772,7 @@ function modalHTML(){
         <input data-m="cost" value="${esc(d.cost)}" placeholder="Cost" inputmode="decimal">
       </div>
       <input data-m="doc" value="${esc(d.doc)}" placeholder="Invoice, report or permit number">
+      ${(S.vehicles||[]).some(v=>v.id===d.refId)?`<label class="lbl">Mileage<input data-m="odo" value="${esc(d.odo||'')}" placeholder="Odometer at the time" inputmode="numeric"></label>`:''}
       ${(S.budget||[]).length?`<label class="lbl">Budget line<select data-m="lineId"><option value="">Not on a line</option>${
         S.budget.map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name||'Unnamed')}</option>`).join('')}</select></label>`:''}
       ${stripHTML(d.photos)}
@@ -3165,7 +3183,9 @@ function commitDraft(){
     if(i>=0) S.contacts[i]=rec; else if(has) S.contacts.push(rec); else return;
   }else if(modal.kind==='log'){
     const has=(d.what||'').trim()||(d.who||'').trim()||(d.cost||'').trim()||(d.doc||'').trim()||(d.photos&&d.photos.length);
-    const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,lineId:d.lineId||'',
+    const veh=(S.vehicles||[]).find(v=>v.id===d.refId);
+    if(veh&&num(d.odo)>num(veh.odo)) veh.odo=d.odo;   // a newer reading moves the vehicle's odometer forward
+    const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,lineId:d.lineId||'',odo:d.odo||'',
       photos:[...(d.photos||[])],date:((d.date||'')+' '+(d.time||'')).trim(),at:d.at||Date.now()};
     const i=S.logs.findIndex(x=>x.id===d.id);
     if(i>=0) S.logs[i]=rec; else if(has) S.logs.unshift(rec); else return;
@@ -3216,7 +3236,9 @@ document.addEventListener('input',async e=>{
   if(a==='vchk'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
     if(ck){ ck[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='duef'){ const o=ownerOf(el.dataset.kind,el.dataset.id), du=o&&(o.dues||[]).find(x=>x.id===el.dataset.did);
-    if(du){ du[el.dataset.f]=el.dataset.f==='every'?+el.value:el.value; saveSoon(); if(el.dataset.f!=='title') render(); } return; }
+    if(du){ du[el.dataset.f]=el.dataset.f==='every'?+el.value:el.value;
+      if(el.dataset.f==='date'&&!+du.every){ du.doneAt=''; du.doneBy=''; }   // a new date on a one-off means it's due again
+      saveSoon(); if(el.dataset.f!=='title') render(); } return; }
   if(a==='petf'){ const p2=S.pets.find(x=>x.id===el.dataset.id); if(p2){
       if(el.dataset.f==='name'&&p2.name!==el.value){
         const oldKey=petPhotoKey(p2.name), newTag=petPhotoTag(el.value);
@@ -3374,7 +3396,11 @@ document.addEventListener('click',async e=>{
     }); return; }
   if(a==='mphoto'){ pick(async files=>{
       for(const f of files){
-        const pid=await addPhoto(f,{caption:modal.draft.title||modal.draft.subject||'',where:''});
+        const md=modal.draft, pet=modal.kind==='log'&&(S.pets||[]).find(x=>x.id===md.refId);
+        const spot=pet&&pet.name?petPhotoTag(pet.name)
+          :modal.kind==='log'?'Service: '+(md.subject||'record')
+          :modal.kind==='inv'?'Inventory: '+((md.title||'').trim()||'item'):'';
+        const pid=await addPhoto(f,{caption:md.title||md.subject||'',where:spot});
         if(pid && modal && modal.draft){ modal.draft.photos.push(pid); commitDraft(); }
       }
       render();
@@ -3388,7 +3414,7 @@ document.addEventListener('click',async e=>{
       closeModal(); modal=b||null; }
     const [ph]=S.photos.splice(i,1), data=photoCache[id], inline=S.photoData&&S.photoData[id];
     const refs=[];
-    [...S.tasks,...S.logs].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
+    [...S.tasks,...S.logs,...(S.inventory||[])].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
     if(S.photoData) delete S.photoData[id];
     const th=thumbCache[id]; delete photoCache[id]; delete thumbCache[id];
     deleted('the photo'+(ph.caption?' \u201c'+ph.caption+'\u201d':''),
@@ -3462,7 +3488,7 @@ document.addEventListener('click',async e=>{
       moved.forEach(f=>f.cat='veh:'+v2.id); }); return; }
 
   if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
-  if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[]}}; render(); return; }
+  if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
   if(a==='inv'){ const x=(S.inventory||[]).find(z=>z.id===id); if(!x) return;
     modalAt=Date.now(); modal={kind:'inv',draft:{...x,photos:[...(x.photos||[])]}}; render(); return; }
   if(a==='delinv'){
@@ -3471,6 +3497,18 @@ document.addEventListener('click',async e=>{
     if(modal&&modal.kind==='inv') modal=null;   // drop the sheet without committing, or it writes the item back
     const [x]=S.inventory.splice(i,1);
     deleted(x.title||'that item',()=>S.inventory.splice(i,0,x)); return; }
+  if(a==='duedone'){ const o=ownerOf(btn.dataset.kind,id), du=o&&(o.dues||[]).find(x=>x.id===btn.dataset.did); if(!du) return;
+    const m=+du.every||0;
+    lastDueDone={kind:btn.dataset.kind,oid:id,did:du.id,prev:{date:du.date,doneAt:du.doneAt,doneBy:du.doneBy,doneTs:du.doneTs}};
+    du.doneAt=isoOf(new Date()); du.doneBy=pref.who(); du.doneTs=Date.now();
+    if(m>0) du.date=isoOf(addMonths(today0(),m));   // next one counts from today, when it was actually done
+    render(); save();
+    setNote(m>0?`Done. Next ${du.title||'one'} is ${fmtDate(du.date)}.`:`${du.title||'That'} is marked done.`,'ok',{label:'Undo',act:'undodue'});
+    return; }
+  if(a==='undodue'){ if(!lastDueDone) return;
+    const o=ownerOf(lastDueDone.kind,lastDueDone.oid), du=o&&(o.dues||[]).find(x=>x.id===lastDueDone.did);
+    if(du) Object.assign(du,lastDueDone.prev);
+    lastDueDone=null; setNote(''); render(); save(); return; }
   if(a==='adddue'){ const o=ownerOf(btn.dataset.kind,id); if(!o) return;
     (o.dues=o.dues||[]).push({id:uid(),title:'',date:'',every:0}); render(); save(); return; }
   if(a==='deldue'){ const o=ownerOf(btn.dataset.kind,id); if(!o||!o.dues) return;
@@ -3483,7 +3521,7 @@ document.addEventListener('click',async e=>{
     const i=p2.specs.findIndex(x=>x.id===btn.dataset.sid); if(i<0) return;
     const [sp]=p2.specs.splice(i,1);
     deleted(sp.k?'\u201c'+sp.k+'\u201d':'that detail',()=>p2.specs.splice(i,0,sp)); return; }
-  if(a==='addpet'){ const p2={id:uid(),name:'',breed:'',vetName:'',vetPhone:'',specs:[]};
+  if(a==='addpet'){ const p2={id:uid(),name:'',breed:'',vetName:'',vetPhone:'',specs:[],addedAt:Date.now(),addedBy:pref.who()};
     S.pets.push(p2); openPet=p2.id; render(); save(); return; }
   if(a==='delpet'){ const i=S.pets.findIndex(x=>x.id===id); if(i<0) return;
     const [p2]=S.pets.splice(i,1);
@@ -3589,7 +3627,11 @@ document.addEventListener('click',async e=>{
     const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
     modalAt=Date.now(); modal={kind:'lineedit',back,draft:{id:l.id,name:l.name,planned:l.planned||''}}; render(); return; }
   if(a==='delline'){ const i=S.budget.findIndex(x=>x.id===id); if(i<0) return;
-    const [l]=S.budget.splice(i,1); deleted('\u201c'+l.name+'\u201d',()=>S.budget.splice(i,0,l)); return; }
+    const [l]=S.budget.splice(i,1);
+    // records, deliveries and purchases on this line go back to "not on a line" so their spending still counts
+    const moved=[...(S.logs||[]),...(S.fuel||[]),...(S.buy||[])].filter(x=>x.lineId===l.id);
+    moved.forEach(x=>x.lineId='');
+    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); }); return; }
   if(a==='newspend'){ const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
     modalAt=Date.now(); modal={kind:'spend',back,draft:{id:uid(),lineId:id,amount:'',date:new Date().toISOString().slice(0,10),note:''}}; render(); return; }
   if(a==='delspend'){ const l=S.budget.find(x=>x.id===btn.dataset.line); if(!l) return;
@@ -3793,15 +3835,19 @@ function buildHandoff(){
     <p class="sub">${esc([e.make,e.model].filter(Boolean).join(' '))}${e.serial?' · serial '+esc(e.serial):''}</p>
     ${hoTable((e.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
     ${(e.checks||[]).length?`<p class="sub">Tune-up: ${esc((e.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
+    ${hoTable(duesRows(e))}
     ${(e.notes||'').trim()?`<p class="sub">Notes: ${esc(e.notes)}</p>`:''}`).join('');
   const vehicles=(S.vehicles||[]).map(veh=>`<h3>${esc(veh.name)}</h3>
     <p class="sub">${esc([veh.make,veh.model].filter(Boolean).join(' '))}${veh.serial?' · VIN '+esc(veh.serial):''}</p>
     ${hoTable((veh.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
     ${(veh.checks||[]).length?`<p class="sub">Maintenance: ${esc((veh.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
+    ${num(veh.odo)?`<p class="sub">Mileage: ${esc(num(veh.odo).toLocaleString())}</p>`:''}
+    ${hoTable(duesRows(veh))}
     ${(veh.notes||'').trim()?`<p class="sub">Notes: ${esc(veh.notes)}</p>`:''}`).join('');
   const pets=(S.pets||[]).map(pet=>`<h3>${esc(pet.name)}</h3>
     <p class="sub">${esc(pet.breed||'')}</p>
     ${hoTable([...(pet.vetName||pet.vetPhone?[['Vet',[pet.vetName,pet.vetPhone].filter(Boolean).join(' · ')]]:[]),
+      ...duesRows(pet),
       ...(pet.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v])])}`).join('');
   const invTotal=(S.inventory||[]).reduce((a,x)=>a+num(x.value),0);
   const inventory=(S.inventory||[]).length?hoTable((S.inventory||[]).map(x=>[x.title||'Unnamed item',
@@ -3860,6 +3906,9 @@ ${hoSection('Photographs',photos)}
    Tab-separated pastes straight into Excel or Sheets as columns. */
 const tsvCell=v=>String(v==null?'':v).replace(/[\t\r\n]+/g,' ');
 function tableFor(what){
+  if(what==='inventory')
+    return [['Item','Room','Value','Bought','Serial / model','Photos','Note'],
+      ...(S.inventory||[]).map(x=>[x.title,x.room,num(x.value)?num(x.value).toFixed(2):'',x.bought,x.serial,(x.photos||[]).length||'',x.note])];
   const rows=(S.fuel||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   return [['Date','Gallons','Price a gallon','Total','Vendor','Budget line','Note'],
     ...rows.map(f=>[f.date,f.gallons,f.price?num(f.price).toFixed(2):'',fuelCost(f)?fuelCost(f).toFixed(2):'',f.vendor,
