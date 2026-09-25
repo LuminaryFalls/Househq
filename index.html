@@ -41,7 +41,8 @@ window.dispatchEvent(new Event('fbloader'));
         <div class="htitle" id="htitle">House HQ</div>
         <div class="hsub" id="hsub"></div>
       </div>
-      <button class="icb" id="gearbtn" data-act="settings" aria-label="Settings"></button>
+      <button class="icb hbtn" id="searchbtn" data-act="gosearch" aria-label="Search"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
+      <button class="icb hbtn" id="gearbtn" data-act="settings" aria-label="Settings"></button>
     </div>
     <div class="hprog" id="hprog" role="progressbar" aria-label="Progress"><i id="hbar"></i></div>
     <div class="seasons" id="seasons"></div>
@@ -50,7 +51,6 @@ window.dispatchEvent(new Event('fbloader'));
   <div id="note" aria-live="polite"></div>
   <main id="view" class="pad"></main>
   <nav id="nav"></nav>
-  <button class="fab" data-act="gosearch" aria-label="Search"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></button>
 </div>
 <div id="modal"></div>
 <input type="file" id="picker" accept="image/*" multiple>
@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1731,13 +1731,14 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 
 .addbox{display:grid;gap:8px;margin-top:12px;padding:12px;border:1.5px dashed ${t.rule};border-radius:12px}
 .themecols{display:flex;gap:10px}
-.themecol{flex:1;display:flex;flex-direction:column;gap:8px;border:1.5px solid ${t.rule};border-radius:12px;padding:10px}
+.themecol{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;border:1.5px solid ${t.rule};border-radius:12px;padding:10px}
 .themecol h3{margin:0 0 2px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:${t.ink70}}
 .tbtn{display:flex;align-items:center;gap:10px;background:${t.paper};color:${t.ink};
   border:1.5px solid ${t.rule};border-radius:10px;padding:11px 12px;font-weight:600;text-align:left;min-height:46px}
 .tbtn.on{border-color:${t.accent};box-shadow:0 0 0 2px ${t.accentSoft}}
 .sw{display:flex;flex:0 0 auto;border:1px solid ${t.rule};border-radius:6px;overflow:hidden}
-.sw i{width:13px;height:20px;display:block}
+.sw i{width:10px;height:20px;display:block}
+.tbtn{min-width:0;gap:8px;padding-left:10px;padding-right:8px;font-size:14.5px;overflow-wrap:anywhere}
 
 .banner{background:${t.accentSoft};color:${t.ink};padding:14px;margin-bottom:16px;border-radius:12px;border-left:4px solid ${t.accent}}
 .banner b{font:700 19px ${HEAD};display:block;margin-bottom:3px}
@@ -1859,9 +1860,10 @@ header{padding:calc(14px + env(safe-area-inset-top)) 18px 16px;
 .htitles{flex:1;min-width:0}
 .htitle{font:800 32px/1.08 ${BODY};letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hsub{font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#gearbtn,.hrow #gearbtn{width:46px;height:46px;min-width:46px;border-radius:50%;background:${t.paper}B3;
+.hrow .hbtn,.hrow #gearbtn{width:46px;height:46px;min-width:46px;border-radius:50%;background:${t.paper}B3;margin:0;
   border:1px solid ${t.ink}24;color:${t.ink};-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
-#gearbtn.on,.hrow #gearbtn.on{background:${t.accentSoft};border-color:${t.accent};color:${t.accent}}
+.hrow .hbtn.on,.hrow #gearbtn.on{background:${t.accentSoft};border-color:${t.accent};color:${t.accent}}
+.hrow{gap:10px}
 .hprog{position:relative;z-index:1;height:4px;border-radius:99px;background:${t.ink}1F;margin:14px 0 0;overflow:hidden}
 .hprog i{display:block;height:100%;width:0;border-radius:99px;background:${t.good};transition:width .35s}
 .tabstripe{display:none}
@@ -1885,18 +1887,15 @@ input,select,textarea{border-radius:12px}
 #q{border-radius:999px;padding-left:42px;
   background:${t.paper} url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='${t.ink70.replace('#','%23')}' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='16.5' y1='16.5' x2='21' y2='21'/%3E%3C/svg%3E") no-repeat 15px 50%}
 /* floating pill nav + round search button */
-nav{left:10px;right:76px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:none;margin:0;padding:4px;
+nav{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));max-width:none;margin:0;padding:5px;
   border-radius:999px;border:1px solid ${t.ink}1F;background:${t.paper}E6;
   -webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 8px 28px rgba(0,0,0,.3)}
-nav button{border-radius:999px;min-height:52px;padding:6px 0 5px;gap:2px;font-size:10px;font-weight:600;letter-spacing:-.01em;color:${t.ink}}
+nav button{border-radius:999px;min-height:60px;padding:7px 0 6px;gap:3px;font-size:11.5px;font-weight:600;color:${t.ink}}
+nav button svg{width:23px;height:23px}
 nav button.on{background:${t.ground};color:var(--tc, ${t.accent});-webkit-text-fill-color:var(--tc, ${t.accent});box-shadow:inset 0 0 0 1px ${t.ink}17}
-.fab{position:fixed;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;
-  z-index:20;display:grid;place-items:center;padding:0;border:1px solid ${t.ink}1F;background:${t.paper}E6;color:${t.ink};
-  -webkit-backdrop-filter:blur(20px) saturate(1.4);backdrop-filter:blur(20px) saturate(1.4);box-shadow:0 8px 28px rgba(0,0,0,.3)}
-.fab:active,nav button:active{transform:scale(.96)}
+nav button:active{transform:scale(.96)}
 @media (min-width:860px){
-  nav{left:calc(50% - 380px);right:calc(50% - 380px + 76px);border-radius:999px}
-  .fab{right:calc(50% - 380px)}
+  nav{left:calc(50% - 380px);right:calc(50% - 380px);border-radius:999px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}`;
 
@@ -2100,6 +2099,8 @@ function renderHeader(){
     av.style.color=col; av.style.background=col+'26'; av.style.borderColor=col+'66'; }
   const gb=document.getElementById('gearbtn'); gb.innerHTML=tab==='settings'?I.x:I.cog; gb.className='icb'+(tab==='settings'?' on':'');
   gb.setAttribute('aria-label',tab==='settings'?'Close settings':'Settings');
+  gb.style.display=(tab==='house'||tab==='settings')?'':'none';   // settings live on the House tab
+  document.getElementById('searchbtn').classList.toggle('on',searchOpen);
   document.getElementById('hsub').textContent=[S.propertyName||'House HQ',total?done+' of '+total+(setup?' set up':' done this year'):'',
     !online()&&cloud.code?'offline, changes queued':!online()?'offline':''].filter(Boolean).join(' · ');
   document.getElementById('tabstripe').style.background=TAB_COLORS[tab]||'#8891A0';
@@ -2145,7 +2146,7 @@ function logHTML(logs,showSubject){
 function searchBar(ph){
   return `<div style="display:flex;gap:8px;margin-bottom:10px">
     <input id="q" placeholder="${ph||'Search everything'}" value="${esc(q)}">
-    ${q?`<button class="btn" style="width:50px;flex:0 0 50px;padding:0" data-act="clearq" aria-label="Clear the search">${I.x}</button>`:''}
+    <button class="btn" style="width:50px;flex:0 0 50px;padding:0" data-act="closesearch" aria-label="Close search">${I.x}</button>
   </div>`;
 }
 function searchAll(ql){
@@ -2165,7 +2166,7 @@ function searchAll(ql){
   (S.equipment||[]).forEach(e=>{
     const parts=(e.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(e.checks||[]).map(c=>c.title).join(' ');
-    if(has(e.name,e.make,e.model,e.serial,parts,checks,e.notes))
+    if(has(e.name,e.make,e.model,e.serial,parts,checks,e.notes,(e.dues||[]).map(d=>d.title).join(' ')))
       add('Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
   (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v))
@@ -2177,12 +2178,12 @@ function searchAll(ql){
   (S.vehicles||[]).forEach(veh=>{
     const parts=(veh.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(veh.checks||[]).map(c=>c.title).join(' ');
-    if(has(veh.name,veh.make,veh.model,veh.serial,parts,checks,veh.notes))
+    if(has(veh.name,veh.make,veh.model,veh.serial,parts,checks,veh.notes,(veh.dues||[]).map(d=>d.title).join(' ')))
       add('Vehicles',veh.name,[[veh.make,veh.model].filter(Boolean).join(' '),veh.serial],'vehiclejump','',veh.id);
   });
   (S.pets||[]).forEach(pet=>{
     const parts=(pet.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
-    if(has(pet.name,pet.breed,parts,pet.vetName,pet.vetPhone))
+    if(has(pet.name,pet.breed,parts,pet.vetName,pet.vetPhone,(pet.dues||[]).map(d=>d.title).join(' ')))
       add('Pets',pet.name,[pet.breed,pet.vetName],'petjump','',pet.id);
   });
   (S.inventory||[]).forEach(x=>{ if(has(x.title,x.room,x.serial,x.note))
@@ -2231,8 +2232,7 @@ function viewList(){
 
   return `${banner}
   <div style="display:flex;gap:8px;margin-bottom:10px">
-    <input id="q" placeholder="Search everything" value="${esc(q)}">
-    <button class="btn dark" style="width:50px;flex:0 0 50px;padding:0" data-act="newtask" aria-label="Add an item">${I.plus}</button>
+    <button class="btn dark" style="flex:1" data-act="newtask">${I.plus} Add an item</button>
     <button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>
   </div>
   <button class="btn dash" style="margin-bottom:14px" data-act="snap">${I.cam} Take or add a photo to look at later</button>
@@ -2255,7 +2255,6 @@ function viewList(){
 /* ---------- Seasons ---------- */
 function viewSeasons(){
   const y=S.activeYear, years=yearsTouched(), now=new Date().getFullYear();
-  const findBar=searchBar();
   const isCurrent=y===now, doneN=seasonalDone(y), totalN=seasonalTotal(y), cur=currentSeason();
   const order=(x,ms)=>x.month?ms.indexOf(+x.month):99;
   const nowM=new Date().getMonth()+1;
@@ -2274,7 +2273,7 @@ function viewSeasons(){
       </div></div>`;
   }
 
-  return `${findBar}<div style="display:flex;gap:8px;margin-bottom:12px;align-items:stretch">
+  return `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:stretch">
     <div class="yearbar" style="flex:1;margin:0">
       <button data-act="year" data-v="${y-1}" ${y-1<Math.min(...years)?'disabled':''} aria-label="Previous year">${I.left}</button>
       <div style="text-align:center"><b>${y}</b><small>${doneN} of ${totalN} done${isCurrent?'':' in a past year'}</small></div>
@@ -2285,11 +2284,11 @@ function viewSeasons(){
   ${isCurrent?'':`<p class="hint">A past year. What you checked then stays as a record.</p>`}
   ${(()=>{ if(!isCurrent) return '';
     // everything with a date across the app — key dates, pets, vehicles, equipment, warranties — plus mileage service
-    const up=upcomingAll().filter(x=>x.when?((x.due||daysAway(x.when)>=-30)&&daysAway(x.when)<=60):true)
+    const up=upcomingAll().filter(x=>x.when?((x.due||daysAway(x.when)>=-30)&&daysAway(x.when)<=30):true)
       .sort((p,q)=>(p.when?daysAway(p.when):Math.min(0,p.miles/100))-(q.when?daysAway(q.when):Math.min(0,q.miles/100)));
     if(!up.length) return '';
     const shown=upcomingOpen?up:up.slice(0,6);
-    return `<div class="card"><div class="head" style="cursor:default;padding-bottom:6px"><b>Coming up</b><i>next 60 days</i></div>
+    return `<div class="card"><div class="head" style="cursor:default;padding-bottom:6px"><b>Coming up</b><i>next 30 days</i></div>
       <div class="inner" style="padding-top:0">${shown.map(x=>{
         const late=x.when?daysAway(x.when)<0:x.miles<0, soon=x.when?daysAway(x.when)<=30:true;
         return `<div class="row"><button class="body" data-act="${x.act}" ${x.id?`data-id="${esc(x.id)}"`:''} ${x.v?`data-v="${esc(x.v)}"`:''}>
@@ -2888,8 +2887,8 @@ function cycleGearIcon(){
 function render(){
   if(!VIEWS[tab]||(tab==='list'&&!setupOpen())) tab='seasons';
   applyTheme(); renderHeader();
-  const searching=q.trim()&&(tab==='list'||tab==='seasons');
-  setHTML(document.getElementById('view'),searching?viewSearch():VIEWS[tab]());
+  const searching=searchOpen&&q.trim();
+  setHTML(document.getElementById('view'),searching?viewSearch():(searchOpen?searchBar():'')+VIEWS[tab]());
   renderNav();
   setHTML(document.getElementById('modal'),modal?modalHTML():'');
   if(modal&&(modal.kind==='fileview'||modal.kind==='handoff')) mountViewer();
@@ -3345,8 +3344,6 @@ function commitDraft(){
     if(i>=0) S.contacts[i]=rec; else if(has) S.contacts.push(rec); else return;
   }else if(modal.kind==='log'){
     const has=(d.what||'').trim()||(d.who||'').trim()||(d.cost||'').trim()||(d.doc||'').trim()||(d.photos&&d.photos.length);
-    const veh=(S.vehicles||[]).find(v=>v.id===d.refId);
-    if(veh&&num(d.odo)>num(veh.odo)) veh.odo=d.odo;   // a newer reading moves the vehicle's odometer forward
     const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,lineId:d.lineId||'',odo:d.odo||'',
       photos:[...(d.photos||[])],date:((d.date||'')+' '+(d.time||'')).trim(),at:d.at||Date.now()};
     const i=S.logs.findIndex(x=>x.id===d.id);
@@ -3364,6 +3361,10 @@ function closeModal(){
   if(modal&&modal.draft){
     commitDraft();
     if(modal.kind==='yearitem'&&(modal.draft.title||'').trim()) seasonSel=modal.draft.season;
+    // a record's mileage moves the vehicle's odometer forward once you're done typing, so a half-typed
+    // or mistyped number never sticks
+    if(modal.kind==='log'){ const veh=(S.vehicles||[]).find(v=>v.id===modal.draft.refId);
+      if(veh&&num(modal.draft.odo)>num(veh.odo)){ veh.odo=modal.draft.odo; saveSoon(); } }
   }
   modal=null; flushSave();
   if(pendingRender){ pendingRender=false; }
@@ -3446,17 +3447,17 @@ document.addEventListener('click',async e=>{
     else selectText('ics');
     return; }
   if(a==='clearnote'){ setNote(''); return; }
-  if(a==='clearq'){ q=''; render(); return; }
+  if(a==='clearq'){ q=''; searchOpen=false; render(); return; }
   if(a==='jump'){ if(!id) return;
     if((S.tasks||[]).some(x=>x.id===id)){ modalAt=Date.now(); modal={kind:'detail',id}; render(); return; }
     if((S.yearly||[]).some(x=>x.id===id)){ modalAt=Date.now(); modal={kind:'yeardetail',id}; render(); return; }
-    if((S.equipment||[]).some(x=>x.id===id)){ tab='gear'; openEquip=id; q=''; render(); return; }
-    if((S.vehicles||[]).some(x=>x.id===id)){ tab='gear'; openVehicle=id; q=''; render(); return; }
-    if((S.pets||[]).some(x=>x.id===id)){ tab='gear'; openPet=id; q=''; render(); return; }
+    if((S.equipment||[]).some(x=>x.id===id)){ tab='gear'; openEquip=id; q=''; searchOpen=false; render(); return; }
+    if((S.vehicles||[]).some(x=>x.id===id)){ tab='gear'; openVehicle=id; q=''; searchOpen=false; render(); return; }
+    if((S.pets||[]).some(x=>x.id===id)){ tab='gear'; openPet=id; q=''; searchOpen=false; render(); return; }
     return; }
-  if(a==='equipjump'){ tab='gear'; openEquip=v; q=''; render(); return; }
-  if(a==='vehiclejump'){ tab='gear'; openVehicle=v; q=''; render(); return; }
-  if(a==='petjump'){ tab='gear'; openPet=v; q=''; render(); return; }
+  if(a==='equipjump'){ tab='gear'; openEquip=v; q=''; searchOpen=false; render(); return; }
+  if(a==='vehiclejump'){ tab='gear'; openVehicle=v; q=''; searchOpen=false; render(); return; }
+  if(a==='petjump'){ tab='gear'; openPet=v; q=''; searchOpen=false; render(); return; }
   if(a==='fvsheet'){ if(modal&&modal.payload){ modal.payload.sheet=v;
       const h=document.getElementById('fv'); if(h){ h.innerHTML=''; paintViewer(h,modal.payload); } } return; }
   if(a==='fileout'){ await downloadFile(id); return; }
@@ -3468,7 +3469,7 @@ document.addEventListener('click',async e=>{
     const n=list.findIndex(x=>x.id===cur.id)+(+btn.dataset.d);
     if(n<0||n>=list.length) return;
     modal.id=list[n].id; await loadPhotos([modal.id]); render(); return; }
-  if(a==='tab'){ tab=v; editing=false; closeModal(); render(); return; }
+  if(a==='tab'){ tab=v; editing=false; searchOpen=false; q=''; closeModal(); render(); return; }
   if(a==='settings'){ if(tab==='settings'){ tab=VIEWS[prevTab]&&prevTab!=='settings'?prevTab:'seasons'; } else { prevTab=tab; tab='settings'; }
     editing=false; closeModal(); render(); return; }
   if(a==='edit'){ editing=!editing; render(); return; }
@@ -3493,10 +3494,13 @@ document.addEventListener('click',async e=>{
     if(ck) setNote(`Ticked for ${S.activeYear}.`,'ok',{label:'Add what you did',act:'log',id:e2.id,sub:e2.name,what:ck.title});
     return; }
   if(a==='togglevehicle'){ const k=id+':'+btn.dataset.cid+':'+S.activeYear;
-    if(S.vehicleDone[k]){ delete S.vehicleDone[k]; render(); save(); return; }
+    const vv=S.vehicles.find(x=>x.id===id), cc=vv&&vv.checks.find(c=>c.id===btn.dataset.cid);
+    if(S.vehicleDone[k]){ delete S.vehicleDone[k];
+      // undo the mileage the tick recorded, unless you've since typed a different one yourself
+      if(cc&&cc.tickMi!==undefined){ if(cc.lastMi===cc.tickMi) cc.lastMi=cc.lastMiBefore||''; delete cc.tickMi; delete cc.lastMiBefore; }
+      render(); save(); return; }
     S.vehicleDone[k]=tick();
-    { const vv=S.vehicles.find(x=>x.id===id), cc=vv&&vv.checks.find(c=>c.id===btn.dataset.cid);
-      if(cc&&num(vv.odo)&&num(cc.miles)) cc.lastMi=vv.odo; }   // done now, at today's mileage
+    if(cc&&num(vv.odo)&&num(cc.miles)){ cc.lastMiBefore=cc.lastMi||''; cc.lastMi=vv.odo; cc.tickMi=vv.odo; }   // done now, at today's mileage
     render(); save();
     const v2=S.vehicles.find(x=>x.id===id), ck=v2&&v2.checks.find(c=>c.id===btn.dataset.cid);
     if(ck) setNote(`Ticked for ${S.activeYear}.`,'ok',{label:'Add what you did',act:'log',id:v2.id,sub:v2.name,what:ck.title});
@@ -3650,8 +3654,9 @@ document.addEventListener('click',async e=>{
     deleted(v2.name,()=>{ S.vehicles.splice(i,0,v2); Object.assign(S.vehicleDone,keep);
       moved.forEach(f=>f.cat='veh:'+v2.id); }); return; }
 
-  if(a==='gosearch'){ if(tab!=='list'&&tab!=='seasons') tab='seasons'; render();
-    const n=document.getElementById('q'); if(n){ n.scrollIntoView({block:'center'}); n.focus(); } return; }
+  if(a==='gosearch'){ searchOpen=!searchOpen; if(!searchOpen) q=''; render();
+    if(searchOpen){ window.scrollTo(0,0); const n=document.getElementById('q'); if(n) n.focus(); } return; }
+  if(a==='closesearch'){ searchOpen=false; q=''; render(); return; }
   if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
   if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
   if(a==='inv'){ const x=(S.inventory||[]).find(z=>z.id===id); if(!x) return;
