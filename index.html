@@ -1860,8 +1860,8 @@ header{padding:calc(14px + env(safe-area-inset-top)) 18px 16px;
 .htitles{flex:1;min-width:0}
 .htitle{font:800 32px/1.08 ${BODY};letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hsub{font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hrow .hbtn,.hrow #gearbtn{width:46px;height:46px;min-width:46px;border-radius:50%;background:${t.paper}B3;margin:0;
-  border:1px solid ${t.ink}24;color:${t.ink};-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.hrow .hbtn,.hrow #gearbtn{width:46px;height:46px;min-width:46px;border-radius:50%;background:${t.paper}D9;margin:0;
+  border:1px solid ${t.ink}24;color:${t.ink}}   /* no backdrop blur here: iPhone Safari renders the header fuzzy with it */
 .hrow .hbtn.on,.hrow #gearbtn.on{background:${t.accentSoft};border-color:${t.accent};color:${t.accent}}
 .hrow{gap:10px}
 .hprog{position:relative;z-index:1;height:4px;border-radius:99px;background:${t.ink}1F;margin:14px 0 0;overflow:hidden}
