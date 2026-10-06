@@ -1821,6 +1821,20 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .album b{font-size:15px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .album i{font-style:normal;font-size:12.5px;color:${t.ink70}}
 .album:active{transform:scale(.97)}
+.alist{display:grid;gap:8px}
+.arow{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 8px;border-radius:16px;text-align:left;
+  background:${t.paper};border:1px solid ${t.ink}17;color:${t.ink};min-height:0}
+.arow .acover{flex:0 0 56px;width:56px;height:56px;border-radius:12px;overflow:hidden;display:grid;place-items:center;
+  background:${t.ground};color:${t.ink70}}
+.arow .acover img{width:100%;height:100%;object-fit:cover;display:block}
+.arow .acover svg{width:24px;height:24px;opacity:.6}
+.arow.empty .acover{border:1px dashed ${t.ink}33;background:transparent}
+.arow .atext{flex:1;min-width:0;display:grid;gap:2px}
+.arow .atext b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .atext i{font-style:normal;font-size:13px;color:${t.ink70}}
+.arow.empty .atext b{font-weight:600;color:${t.ink70}}
+.arow .achev{color:${t.ink70};display:grid}
+.arow:active{transform:scale(.98)}
 .album.empty .acover{border-style:dashed;background:transparent}
 .album.empty .acover svg{width:30px;height:30px;opacity:.55}
 .spthumb{flex:0 0 46px;width:46px;height:46px;padding:0;border-radius:12px;overflow:hidden;display:grid;place-items:center;
@@ -2368,7 +2382,7 @@ function viewPhotos(){
   const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
   if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
   if(g){
-    const pet=g.key.startsWith('pet: '), room=ROOM_KEYS.includes(g.key);
+    const pet=g.key==='pets'||g.key==='inventory', room=ROOM_KEYS.includes(g.key);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
       <div style="flex:1"></div>
@@ -2402,10 +2416,11 @@ function viewPhotos(){
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 12px" data-act="reshoot" data-id="${p.id}">${I.cam} New one</button>
     </div>`).join('')}</div></div>`:''}
   <p class="hint">Tap a room to open it. To move a photo, open it and pick a different album.</p>
-  <div class="albums">${albums.map(g=>`<button class="album ${g.photos.length?'':'empty'}" data-act="album" data-v="${esc(g.key)}">
-    <span class="acover">${cover(g)}${g.photos.length?`<span class="acount">${g.photos.length}</span>`:''}</span>
-    <b>${esc(albumName(g))}</b>
-    <i>${g.photos.length?(g.photos.length===1?'1 photo':g.photos.length+' photos')+' · '+esc(fmtDate(g.photos[0].addedAt)):'Empty'}</i>
+  <div class="alist">${albums.map(g=>`<button class="arow ${g.photos.length?'':'empty'}" data-act="album" data-v="${esc(g.key)}">
+    <span class="acover">${cover(g)}</span>
+    <span class="atext"><b>${esc(albumName(g))}</b>
+      <i>${g.photos.length?(g.photos.length===1?'1 photo':g.photos.length+' photos')+' · '+esc(fmtDate(g.photos[0].addedAt)):'Empty'}</i></span>
+    <span class="achev">${I.right}</span>
   </button>`).join('')}</div>`;
 }
 /* Rooms are the main albums: always listed, even before they have a photo. */
@@ -2424,15 +2439,26 @@ function allAlbums(){
 function photoGroups(){
   const map=new Map();
   for(const p of S.photos){
-    const key=(p.where||'').trim().toLowerCase();
-    if(!map.has(key)) map.set(key,{key,name:(p.where||'').trim(),photos:[]});
+    const key=albumKeyOf(p);
+    if(!map.has(key)) map.set(key,{key,name:ALBUM_NAMES[key]||(p.where||'').trim(),photos:[]});
     map.get(key).photos.push(p);
   }
   const gs=[...map.values()];
   gs.sort((a,b)=>(a.key?1:0)-(b.key?1:0)||(b.photos[0].addedAt>a.photos[0].addedAt?1:-1));
   return gs;
 }
-function photosAt(key){ return S.photos.filter(p=>(p.where||'').trim().toLowerCase()===key).slice().reverse(); } // oldest first
+/* Which album a photo sits in. Older photos were tagged "Pet: Penny" or "Inventory: TV";
+   those all read as the one Pets / Inventory album, so nothing needs re-saving. */
+const albumKeyOf=p=>{ const k=((p&&p.where)||'').trim().toLowerCase();
+  return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k; };
+const ALBUM_NAMES={pets:'Pets',inventory:'Inventory'};
+const linkPet=(photoId,petId)=>{ const ph=S.photos.find(x=>x.id===photoId); if(ph) ph.petId=petId; };
+function photosAt(key){ return S.photos.filter(p=>albumKeyOf(p)===key).slice().reverse(); } // oldest first
+/* A pet's own photos: linked by id, or (older photos) by their "Pet: name" tag. */
+function petPhotos(pet){
+  const legacy=pet.name?petPhotoKey(pet.name):null;
+  return S.photos.filter(ph=>ph.petId===pet.id||(!ph.petId&&legacy&&(ph.where||'').trim().toLowerCase()===legacy)).slice().reverse();
+}
 function fmtDate(s){
   const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||''); if(!m) return s||'';
   return `${MONTHS[+m[2]-1].slice(0,3)} ${+m[3]}, ${m[1]}`;
@@ -2653,7 +2679,7 @@ const petPhotoTag=name=>'Pet: '+(name||'').trim();
 /* A pet's profile photo: the one you set, or else their newest gallery photo. */
 function petAvatarId(pet){
   if(pet.photoId&&(S.photos||[]).some(p=>p.id===pet.photoId)) return pet.photoId;
-  const pics=pet.name?photosAt(petPhotoKey(pet.name)):[];
+  const pics=petPhotos(pet);
   return pics.length?pics[pics.length-1].id:'';
 }
 const petAvatar=(pet,cls)=>{ const id=petAvatarId(pet), src=id?thumbOf(id):'';
@@ -2662,7 +2688,7 @@ const petPhotoKey=name=>petPhotoTag(name).toLowerCase();
 function petCardsHTML(){
   return (S.pets||[]).map(pet=>{
     const open=openPet===pet.id;
-    const pics=pet.name?photosAt(petPhotoKey(pet.name)):[];
+    const pics=petPhotos(pet);
     return `<div class="card">
       <button class="head" data-act="pet" data-id="${pet.id}">
         <span style="display:flex;align-items:center;gap:12px;min-width:0">${petAvatar(pet)}<b>${esc(pet.name)||'New pet'}</b></span><i>${esc(pet.breed||'')}</i></button>
@@ -3268,7 +3294,7 @@ function modalHTML(){
   }
   if(modal.kind==='photodetail'){
     const p=S.photos.find(x=>x.id===modal.id); if(!p) return '';
-    const key=(p.where||'').trim().toLowerCase(), list=photosAt(key), i=list.findIndex(x=>x.id===p.id);
+    const key=albumKeyOf(p), list=photosAt(key), i=list.findIndex(x=>x.id===p.id);
     const spots=[...new Set(S.photos.map(x=>(x.where||'').trim()).filter(Boolean))];
     return sheet(p.caption||fmtDate(p.addedAt),`
       <button class="pbig" data-act="viewfull" data-id="${p.id}" aria-label="Fill the screen">
@@ -3280,11 +3306,11 @@ function modalHTML(){
       </div><div class="m" style="justify-content:center">${i+1} of ${list.length} at this spot</div>`:''}
       <label class="lbl">What is this<input data-act="caption" data-id="${p.id}" value="${esc(p.caption)}" placeholder="Crack over the garage door"></label>
       <label class="lbl">Album<select data-act="where" data-id="${p.id}">${(()=>{
-        const cur=(p.where||'').trim(), curKey=cur.toLowerCase();
+        const cur=(p.where||'').trim(), curKey=albumKeyOf(p);
         const opts=[['','Unsorted'],...ROOMS.map(r=>[r,r])];
         allAlbums().forEach(g=>{ if(g.key&&!ROOM_KEYS.includes(g.key)) opts.push([g.name,g.name]); });
-        if(cur&&!opts.some(([v])=>v.toLowerCase()===curKey)) opts.push([cur,cur]);
-        return opts.map(([v,l])=>`<option value="${esc(v)}" ${v.toLowerCase()===curKey?'selected':''}>${esc(l)}</option>`).join(''); })()}</select></label>
+        if(cur&&!opts.some(([v])=>albumKeyOf({where:v})===curKey)) opts.push([cur,cur]);
+        return opts.map(([v,l])=>`<option value="${esc(v)}" ${albumKeyOf({where:v})===curKey?'selected':''}>${esc(l)}</option>`).join(''); })()}</select></label>
       <datalist id="spots">${spots.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
       <label class="lbl">Notes<textarea rows="4" data-act="pnote" data-id="${p.id}" placeholder="What you were looking at, what it measured, what to watch for next time">${esc(p.note||'')}</textarea></label>
       <label class="lbl">Look at this again<select data-act="precheck" data-id="${p.id}">
@@ -3445,7 +3471,7 @@ document.addEventListener('input',async e=>{
   if(a==='who'){ LS('hq:who',el.value.trim()||null); return; }
   if(a==='pname'){ S.propertyName=el.value; renderHeader(); saveSoon(); return; }
   if(a==='albumname'){ const key=openAlbum, name=el.value;
-    S.photos.forEach(ph=>{ if((ph.where||'').trim().toLowerCase()===key) ph.where=name; });
+    S.photos.forEach(ph=>{ if(albumKeyOf(ph)===key) ph.where=name; });
     openAlbum=name.trim().toLowerCase(); saveSoon(); render(); return; }
   if(a==='spec'){ const s=S.specs.find(x=>x.id===el.dataset.sid); if(s){ s[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='eq'){ const q2=S.equipment.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); } return; }
@@ -3467,7 +3493,10 @@ document.addEventListener('input',async e=>{
         const oldKey=petPhotoKey(p2.name), newTag=petPhotoTag(el.value);
         if(oldKey.trim()!=='pet:') S.photos.forEach(ph=>{ if((ph.where||'').trim().toLowerCase()===oldKey) ph.where=newTag; });
       }
-      p2[el.dataset.f]=el.value; saveSoon(); } return; }
+      const hadName=!!(p2.name||'').trim();
+      p2[el.dataset.f]=el.value; saveSoon();
+      if(el.dataset.f==='name'&&hadName!==!!el.value.trim()) render();   // naming a pet reveals its photo button
+    } return; }
   if(a==='petspec'){ const p2=S.pets.find(x=>x.id===el.dataset.id), sp=p2&&p2.specs.find(x=>x.id===el.dataset.sid);
     if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='caption'||a==='where'||a==='pnote'){ const p=S.photos.find(x=>x.id===el.dataset.id);
@@ -3525,7 +3554,7 @@ document.addEventListener('click',async e=>{
     modalAt=Date.now(); modal={kind:'photo',id,back}; render(); return; }
   if(a==='pstep'){ if(!modal||modal.kind!=='photodetail') return;
     const cur=S.photos.find(x=>x.id===modal.id); if(!cur) return;
-    const list=photosAt((cur.where||'').trim().toLowerCase());
+    const list=photosAt(albumKeyOf(cur));
     const n=list.findIndex(x=>x.id===cur.id)+(+btn.dataset.d);
     if(n<0||n>=list.length) return;
     modal.id=list[n].id; await loadPhotos([modal.id]); render(); return; }
@@ -3623,10 +3652,11 @@ document.addEventListener('click',async e=>{
   if(a==='mphoto'){ pick(async files=>{
       for(const f of files){
         const md=modal.draft, pet=modal.kind==='log'&&(S.pets||[]).find(x=>x.id===md.refId);
-        const spot=pet&&pet.name?petPhotoTag(pet.name)
+        const spot=pet?'Pets'
           :modal.kind==='log'?'Service: '+(md.subject||'record')
-          :modal.kind==='inv'?'Inventory: '+((md.title||'').trim()||'item'):'';
+          :modal.kind==='inv'?'Inventory':'';
         const pid=await addPhoto(f,{caption:md.title||md.subject||'',where:spot});
+        if(pid&&pet) linkPet(pid,pet.id);
         if(pid && modal && modal.draft){ modal.draft.photos.push(pid); commitDraft(); }
       }
       render();
@@ -3768,20 +3798,20 @@ document.addEventListener('click',async e=>{
     const [p2]=S.pets.splice(i,1);
     // its papers fall back to Papers, and its photos go loose rather than staying pinned to a pet that is gone
     const movedFiles=(S.files||[]).filter(f=>f.cat==='pet:'+p2.id); movedFiles.forEach(f=>f.cat='Papers');
-    const oldKey=petPhotoKey(p2.name);
-    const movedPics=p2.name?(S.photos||[]).filter(ph=>(ph.where||'').trim().toLowerCase()===oldKey):[];
-    movedPics.forEach(ph=>ph.where='');
+    const movedPics=petPhotos(p2).map(ph=>[ph,ph.petId,ph.where]);
+    movedPics.forEach(([ph])=>{ delete ph.petId; ph.where='Pets'; });
     if(openPet===p2.id) openPet=null;
     deleted(p2.name||'that pet',()=>{ S.pets.splice(i,0,p2);
       movedFiles.forEach(f=>f.cat='pet:'+p2.id);
-      movedPics.forEach(ph=>ph.where=petPhotoTag(p2.name)); }); return; }
+      movedPics.forEach(([ph,pid,w])=>{ if(pid) ph.petId=pid; ph.where=w; }); }); return; }
   if(a==='petprofile'){ const pet=S.pets.find(x=>x.id===id); if(!pet) return;
     pick(async files=>{ if(!files[0]) return;
-      const pid=await addPhoto(files[0],{caption:(pet.name||'Pet')+' profile photo',where:pet.name?petPhotoTag(pet.name):''});
-      if(pid){ pet.photoId=pid; save(); }
+      const pid=await addPhoto(files[0],{caption:(pet.name||'Pet')+' profile photo',where:'Pets'});
+      if(pid){ pet.photoId=pid; linkPet(pid,pet.id); save(); }
       render(); }); return; }
-  if(a==='snappet'){ const petTag=petPhotoTag(btn.dataset.sub||''); pick(async files=>{
-      let n=0; for(const f of files){ if(await addPhoto(f,{caption:'',where:petTag})) n++; }
+  if(a==='snappet'){ const petId=id; pick(async files=>{
+      let n=0; for(const f of files){ const pid=await addPhoto(f,{caption:'',where:'Pets'}); if(pid){ linkPet(pid,petId); n++; } }
+      save();
       if(files.length>1) setNote(n===files.length?`${n} photos added.`:`${n} of ${files.length} photos added.`,'ok');
       render(); }); return; }
 
