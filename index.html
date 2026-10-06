@@ -1841,6 +1841,19 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
   border:1px solid ${t.ink}24;background:${t.paper};color:${t.ink70}}
 .spthumb img{width:100%;height:100%;object-fit:cover;display:block}
 .spthumb.add{border-style:dashed}
+.sizerow{display:flex;align-items:center;gap:12px;width:100%;min-height:0;padding:10px 0;margin:0;border:0;border-radius:0;
+  border-bottom:1px solid ${t.rule};background:none;text-align:left;color:${t.ink}}
+.sizerow:last-of-type{border-bottom:0}
+.sizerow .sztext{flex:1;min-width:0;display:grid;gap:2px}
+.sizerow b{font-size:15px;font-weight:600}
+.sizerow .szv{font-size:17px;font-weight:700;color:${t.accent};overflow-wrap:anywhere;letter-spacing:.01em}
+.sizerow .szv i{font-size:14px;font-weight:400;font-style:normal;color:${t.ink70}}
+.sizerow .szn{font-size:13px;color:${t.ink70};overflow-wrap:anywhere}
+.sizerow .achev{color:${t.ink70};display:grid}
+.sizerow:active{opacity:.7}
+.specv-in{font-size:20px;font-weight:700;letter-spacing:.02em;overflow-wrap:anywhere}
+.specphoto-big{display:block;width:100%;padding:0;border-radius:14px;overflow:hidden;border:1px solid ${t.ink}24;background:${t.ground};aspect-ratio:4/3}
+.specphoto-big img{width:100%;height:100%;object-fit:cover;display:block}
 .pcell{display:grid;gap:4px;align-content:start}
 .pcell .ph{width:100%;aspect-ratio:1/1;border:1px solid ${t.rule};border-radius:10px;background:${t.ground};
   padding:0;overflow:hidden;display:grid;place-items:center;color:${t.ink70}}
@@ -2200,7 +2213,7 @@ function searchAll(ql){
     if(has(e.name,e.make,e.model,e.serial,parts,checks,e.notes,(e.dues||[]).map(d=>d.title).join(' ')))
       add('Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
-  (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v))
+  (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v,sp.note))
     add('Sizes',sp.k||'Unnamed',[sp.v],'tab','', 'house'); });
   (S.files||[]).forEach(f=>{ if(has(f.name,f.note,f.cat,catLabel(f.cat)))
     add('Files',f.name,[catLabel(f.cat)||f.cat,f.note],'openfile',f.id); });
@@ -2795,18 +2808,17 @@ function viewHouse(){
 
   <section class="zone"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <h2 class="sec" style="margin:0;flex:1">Sizes</h2>
-    <button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>
   </div>
-  <p class="hint">Filter sizes and part numbers, so you measure once. Fill a size in any time; tap Edit to add a line or take one out.</p>
-  ${S.specs.map(s=>`<div class="specrow">
-    ${s.photo&&S.photos.some(p=>p.id===s.photo)&&!editing
-      ?`<button class="spthumb" data-act="viewphoto" data-id="${s.photo}" aria-label="Open the photo">${thumbOf(s.photo)?`<img src="${thumbOf(s.photo)}" alt="">`:I.img}</button>`
-      :`<button class="spthumb add" data-act="specphoto" data-sid="${s.id}" aria-label="${s.photo?'Replace the photo':'Add a photo'}">${I.cam}</button>`}
-    <input data-act="spec" data-sid="${s.id}" data-f="k" value="${esc(s.k)}" placeholder="What">
-    <input data-act="spec" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Size or part no.">
-    ${editing?`<button class="icb" data-act="delspec" data-sid="${s.id}" aria-label="Remove this size">${I.trash}</button>`:''}</div>`).join('')}
+  <p class="hint">Filter sizes and part numbers, so you measure once. Tap one to read it in full, edit it, or add a photo.</p>
+  ${S.specs.map(s=>{ const ph=s.photo&&S.photos.some(p=>p.id===s.photo)?s.photo:'';
+    return `<button class="sizerow" data-act="specopen" data-sid="${s.id}">
+    <span class="spthumb ${ph?'':'add'}" ${ph?`data-thumb="${ph}"`:''}>${ph?(thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img):I.cam}</span>
+    <span class="sztext"><b>${esc(s.k)||'Unnamed'}</b>
+      <span class="szv">${(s.v||'').trim()?esc(s.v):'<i>No size yet</i>'}</span>
+      ${(s.note||'').trim()?`<span class="szn">${esc(s.note)}</span>`:''}</span>
+    <span class="achev">${I.right}</span></button>`; }).join('')}
   ${S.specs.length?'':'<p class="hint" style="margin-top:8px">Nothing measured yet.</p>'}
-  ${editing?`<button class="btn" data-act="addspec">${I.plus} Add a size</button>`:''}</section>
+  <button class="btn dash" style="margin-top:10px" data-act="addspec">${I.plus} Add a size</button></section>
 
   <section class="zone"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <h2 class="sec" style="margin:0;flex:1">Key dates</h2>
@@ -3188,6 +3200,18 @@ function modalHTML(){
       ${d.stored?`<p class="hint" style="margin:0">${esc(prettySize(d.size))}${!cloud.code?' · on this phone':d.shared===false?' · too big to sync, stays on this phone':' · shared with the other phones'}</p>`:''}
       <button class="btn solid" data-act="done">Done</button>`,true);
   }
+  if(modal.kind==='spec'){
+    const d=modal.draft, ph=d.photo&&S.photos.some(p=>p.id===d.photo)?d.photo:'';
+    return sheet(modal.isNew?'New size':(d.k||'Size'),`
+      <label class="lbl">What it is<input data-m="k" value="${esc(d.k)}" placeholder="Furnace filter"></label>
+      <label class="lbl">Size or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="16x25x1, MERV 11">${esc(d.v)}</textarea></label>
+      <button class="btn" data-act="copyspec">${I.doc} Copy the size or part number</button>
+      <label class="lbl">Notes<textarea data-m="note" rows="3" placeholder="Where you buy it, pack size, when it was last changed">${esc(d.note||'')}</textarea></label>
+      ${ph?`<button class="specphoto-big" data-act="viewphoto" data-id="${ph}" aria-label="Open the photo">${thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img}</button>`:''}
+      <button class="btn" data-act="specsheetphoto">${I.cam} ${ph?'Replace the photo':'Add a photo'}</button>
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delspecsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this size'}</button>`}`,true);
+  }
   if(modal.kind==='inv'){
     const d=modal.draft;
     return sheet(modal.isNew?'New item':'Edit item',`
@@ -3397,6 +3421,11 @@ function commitDraft(){
     const rec={id:d.id,title:d.title,est:num(d.est),note:d.note||'',url:d.url||'',lineId:d.lineId||'',bought:d.bought||null,paid:num(d.paid)};
     const i=S.buy.findIndex(x=>x.id===d.id);
     if(i>=0) S.buy[i]={...S.buy[i],...rec}; else S.buy.push(rec);
+  }else if(modal.kind==='spec'){
+    const has=(d.k||'').trim()||(d.v||'').trim()||(d.note||'').trim()||d.photo;
+    const rec={id:d.id,k:d.k||'',v:d.v||'',note:d.note||'',photo:d.photo||''};
+    const i=S.specs.findIndex(x=>x.id===d.id);
+    if(i>=0) S.specs[i]={...S.specs[i],...rec}; else if(has) S.specs.push(rec); else return;
   }else if(modal.kind==='inv'){
     const has=(d.title||'').trim()||num(d.value)||(d.photos&&d.photos.length);
     const rec={...d,photos:[...(d.photos||[])]};
@@ -3687,7 +3716,24 @@ document.addEventListener('click',async e=>{
   if(a==='reopenphase'){ delete S.closedPhases[v]; render(); save(); return; }
   if(a==='reopenall'){ S.closedPhases={}; tab='list'; filter='All'; render(); save(); return; }
 
-  if(a==='addspec'){ S.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
+  if(a==='addspec'){ modalAt=Date.now(); modal={kind:'spec',isNew:true,draft:{id:uid(),k:'',v:'',note:'',photo:''}}; render(); return; }
+  if(a==='specopen'){ const sp=S.specs.find(x=>x.id===btn.dataset.sid); if(!sp) return;
+    modalAt=Date.now(); modal={kind:'spec',draft:{note:'',photo:'',...sp}}; render(); return; }
+  if(a==='copyspec'){ const v=((modal&&modal.draft&&modal.draft.v)||'').trim();
+    if(!v){ setNote('Nothing to copy yet.'); return; }
+    try{ await navigator.clipboard.writeText(v); setNote('Copied: '+v,'ok'); }catch(e){ setNote('Copying was blocked here — press and hold the number to copy it.'); }
+    return; }
+  if(a==='specsheetphoto'){ const md=modal&&modal.draft; if(!md) return;
+    pick(async files=>{ if(!files[0]) return;
+      const pid=await addPhoto(files[0],{caption:md.k||'Size',where:'Sizes'});
+      if(pid&&modal&&modal.draft===md){ md.photo=pid; commitDraft(); save(); }
+      render(); }); return; }
+  if(a==='delspecsheet'){
+    if(modal&&modal.kind==='spec'&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=S.specs.findIndex(x=>x.id===id); if(i<0) return;
+    if(modal&&modal.kind==='spec') modal=null;   // drop the sheet without committing, or it writes the size back
+    const [sp]=S.specs.splice(i,1);
+    deleted(sp.k?'\u201c'+sp.k+'\u201d':'that size',()=>S.specs.splice(i,0,sp)); return; }
   if(a==='delspec'){ const i=S.specs.findIndex(x=>x.id===btn.dataset.sid); if(i<0) return;
     const [sp]=S.specs.splice(i,1);
     deleted(sp.k?'\u201c'+sp.k+'\u201d':'that size',()=>S.specs.splice(i,0,sp)); return; }
@@ -4131,7 +4177,7 @@ function buildHandoff(){
   const y=new Date().getFullYear();
   const kd=(S.keyDates||[]).filter(k=>k.date).map(k=>{ const w=nextOccur(k);
     return [k.title,w?fmtDate(isoOf(w)):'',repeatWord(k.every),k.note||'']; });
-  const sizes=(S.specs||[]).filter(sp=>(sp.k||'').trim()||(sp.v||'').trim()).map(sp=>[sp.k,sp.v]);
+  const sizes=(S.specs||[]).filter(sp=>(sp.k||'').trim()||(sp.v||'').trim()).map(sp=>[sp.k,[sp.v,sp.note].filter(x=>(x||'').trim()).join(' — ')]);
   const gear=(S.equipment||[]).map(e=>`<h3>${esc(e.name)}</h3>
     <p class="sub">${esc([e.make,e.model].filter(Boolean).join(' '))}${e.serial?' · serial '+esc(e.serial):''}</p>
     ${hoTable((e.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
