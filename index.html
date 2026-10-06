@@ -3201,10 +3201,25 @@ function modalHTML(){
       <button class="btn solid" data-act="done">Done</button>`,true);
   }
   if(modal.kind==='spec'){
+    /* an example that fits the item, so a well filter doesn't suggest a furnace filter size */
+    const specHint=n=>{ n=(n||'').toLowerCase();
+      if(/furnace|hvac|air filter|return/.test(n)) return 'e.g. 16x25x1, MERV 11';
+      if(/humidifier/.test(n)) return 'e.g. Aprilaire #35';
+      if(/well|sediment|whole.?house/.test(n)) return 'e.g. 10" x 2.5", 5 micron';
+      if(/water heater|element/.test(n)) return 'e.g. 4500W 240V screw-in';
+      if(/fridge|refrigerator|ice/.test(n)) return 'e.g. model or filter no. from the label';
+      if(/softener|salt/.test(n)) return 'e.g. 40 lb bags, solar salt';
+      if(/bulb|light/.test(n)) return 'e.g. A19 LED, 60W equivalent';
+      if(/battery|smoke|detector/.test(n)) return 'e.g. 9V, or AA x2';
+      if(/blade|mower/.test(n)) return 'e.g. 21" blade, part no.';
+      if(/oil/.test(n)) return 'e.g. SAE 30, 20 oz';
+      if(/tire|wiper/.test(n)) return 'e.g. size or part no.';
+      return 'Size, model, or part number';
+    };
     const d=modal.draft, ph=d.photo&&S.photos.some(p=>p.id===d.photo)?d.photo:'';
     return sheet(modal.isNew?'New size':(d.k||'Size'),`
       <label class="lbl">What it is<input data-m="k" value="${esc(d.k)}" placeholder="Furnace filter"></label>
-      <label class="lbl">Size or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="16x25x1, MERV 11">${esc(d.v)}</textarea></label>
+      <label class="lbl">Size or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="${esc(specHint(d.k))}">${esc(d.v)}</textarea></label>
       <button class="btn" data-act="copyspec">${I.doc} Copy the size or part number</button>
       <label class="lbl">Notes<textarea data-m="note" rows="3" placeholder="Where you buy it, pack size, when it was last changed">${esc(d.note||'')}</textarea></label>
       ${ph?`<button class="specphoto-big" data-act="viewphoto" data-id="${ph}" aria-label="Open the photo">${thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img}</button>`:''}
