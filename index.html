@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1810,6 +1810,23 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 
 /* photo wall */
 .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.pgrid.big{grid-template-columns:repeat(2,1fr);gap:12px}
+.albums{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.album{display:grid;gap:3px;text-align:left;background:none;border:0;padding:0;color:${t.ink}}
+.album .acover{position:relative;display:block;aspect-ratio:1/1;border-radius:18px;overflow:hidden;
+  background:${t.paper};border:1px solid ${t.ink}17;display:grid;place-items:center;color:${t.ink70}}
+.album .acover img{width:100%;height:100%;object-fit:cover;display:block}
+.album .acount{position:absolute;right:8px;bottom:8px;min-width:24px;padding:2px 8px;border-radius:99px;
+  background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;text-align:center}
+.album b{font-size:15px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.album i{font-style:normal;font-size:12.5px;color:${t.ink70}}
+.album:active{transform:scale(.97)}
+.album.empty .acover{border-style:dashed;background:transparent}
+.album.empty .acover svg{width:30px;height:30px;opacity:.55}
+.spthumb{flex:0 0 46px;width:46px;height:46px;padding:0;border-radius:12px;overflow:hidden;display:grid;place-items:center;
+  border:1px solid ${t.ink}24;background:${t.paper};color:${t.ink70}}
+.spthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.spthumb.add{border-style:dashed}
 .pcell{display:grid;gap:4px;align-content:start}
 .pcell .ph{width:100%;aspect-ratio:1/1;border:1px solid ${t.rule};border-radius:10px;background:${t.ground};
   padding:0;overflow:hidden;display:grid;place-items:center;color:${t.ink70}}
@@ -2341,13 +2358,39 @@ function viewPhotos(){
   const groups=photoGroups();
   const places=groups.filter(g=>g.key).map(g=>g.name);
   const top=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <h2 class="sec" style="margin:0;flex:1">Photo log${S.photos.length?` <em>${S.photos.length}</em>`:''}</h2>
-    ${S.photos.length?`<button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>`:''}
+    <h2 class="sec" style="margin:0;flex:1">Albums${S.photos.length?` <em>${S.photos.length} photos</em>`:''}</h2>
   </div>`;
-  if(!S.photos.length) return top+`
-    <p class="hint">Nothing yet. Take or add a photo of anything you want to compare later — a crack, a serial plate, a wet spot, an invoice — then give it a spot on the property so its history stays together.</p>
-    <button class="btn solid" data-act="snapfree">${I.cam} Take or add a photo</button>`;
   const due=S.photos.filter(p=>p.recheck&&daysAway(parseDate(p.recheck))<=0);
+  const albums=allAlbums();
+  const cover=g=>{ const ph=g.photos[0]; return ph&&thumbOf(ph.id)?`<img src="${thumbOf(ph.id)}" alt="">`:I.home; };
+  const albumName=g=>g.key?g.name:'Unsorted';
+  // one album open: every photo in it, bigger, with its own add button
+  const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
+  if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
+  if(g){
+    const pet=g.key.startsWith('pet: '), room=ROOM_KEYS.includes(g.key);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
+      <div style="flex:1"></div>
+      ${g.photos.length?`<button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>`:''}
+    </div>
+    <section class="zone">
+      <h2 class="sec">${esc(albumName(g))} <em>${g.photos.length===1?'1 photo':g.photos.length+' photos'}</em></h2>
+      ${editing&&g.key&&!pet&&!room?`<label class="lbl">Album name<input data-act="albumname" value="${esc(g.name)}" placeholder="Album name"></label>
+        <p class="hint" style="margin-top:0">Renaming to an existing album's name merges the two.</p>`:''}
+      <div class="btns h" style="margin-bottom:12px">
+        <button class="btn solid" data-act="snapalbum">${I.cam} Add a photo</button>
+        ${g.photos.length>1&&g.key?`<button class="btn" data-act="compare" data-v="${esc(g.key)}">Compare</button>`:''}
+      </div>
+      ${g.photos.length?'':`<p class="hint" style="margin:0">No photos in ${esc(albumName(g))} yet.</p>`}
+      <div class="pgrid big">${g.photos.map(p=>`<div class="pcell">
+        <button class="ph" data-act="viewphoto" data-id="${p.id}" aria-label="Open this photo">${thumbOf(p.id)?`<img src="${thumbOf(p.id)}" alt="">`:I.img}</button>
+        <div class="cp"><b>${esc(p.caption||'Not named yet')}</b></div>
+        <div class="cp">${esc(fmtDate(p.addedAt))}${p.note?' · noted':''}</div>
+        ${editing?`<button class="btn" style="min-height:34px;padding:2px;font-size:12px" data-act="delphoto" data-id="${p.id}" aria-label="Delete">${I.trash}</button>`:''}
+      </div>`).join('')}</div>
+    </section>`;
+  }
   return top+`
   <button class="btn solid" data-act="snapfree" style="margin-bottom:16px">${I.cam} Take or add a photo</button>
   ${due.length?`<div class="card"><div class="head" style="cursor:default;padding-bottom:6px"><b>Worth another look</b><i>${due.length}</i></div>
@@ -2358,16 +2401,24 @@ function viewPhotos(){
         <div class="m">${[p.where,'shot '+fmtDate(p.addedAt)].filter(Boolean).map(esc).join(' · ')}</div></button>
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 12px" data-act="reshoot" data-id="${p.id}">${I.cam} New one</button>
     </div>`).join('')}</div></div>`:''}
-  <p class="hint">Tap any photo to read it full size, name it, and keep notes on it.</p>
-  ${groups.map(g=>`<section class="grp zone">
-    <h3>${g.key?esc(g.name):'No spot yet'}<span>${g.photos.length===1?'1 photo':g.photos.length+' photos'}${g.key&&g.photos.length>1?` · <button class="linkbtn" data-act="compare" data-v="${esc(g.key)}">Compare</button>`:''}</span></h3>
-    <div class="pgrid">${g.photos.map(p=>`<div class="pcell">
-      <button class="ph" data-act="viewphoto" data-id="${p.id}" aria-label="Open this photo">${thumbOf(p.id)?`<img src="${thumbOf(p.id)}" alt="">`:I.img}</button>
-      <div class="cp"><b>${esc(p.caption||'Not named yet')}</b></div>
-      <div class="cp">${esc(fmtDate(p.addedAt))}${p.note?' · noted':''}</div>
-      ${editing?`<button class="btn" style="min-height:34px;padding:2px;font-size:12px" data-act="delphoto" data-id="${p.id}" aria-label="Delete">${I.trash}</button>`:''}
-    </div>`).join('')}</div>
-  </section>`).join('')}`;
+  <p class="hint">Tap a room to open it. To move a photo, open it and pick a different album.</p>
+  <div class="albums">${albums.map(g=>`<button class="album ${g.photos.length?'':'empty'}" data-act="album" data-v="${esc(g.key)}">
+    <span class="acover">${cover(g)}${g.photos.length?`<span class="acount">${g.photos.length}</span>`:''}</span>
+    <b>${esc(albumName(g))}</b>
+    <i>${g.photos.length?(g.photos.length===1?'1 photo':g.photos.length+' photos')+' · '+esc(fmtDate(g.photos[0].addedAt)):'Empty'}</i>
+  </button>`).join('')}</div>`;
+}
+/* Rooms are the main albums: always listed, even before they have a photo. */
+const ROOMS=['Kitchen','Bathroom','Bedroom','Hobby room','Workout room','Living room','Dining room','Mudroom','Garage','Post frame'];
+const ROOM_KEYS=ROOMS.map(r=>r.toLowerCase());
+/* Every album, in order: Unsorted (if any), the rooms, then albums the app made (pets, sizes…). */
+function allAlbums(){
+  const groups=photoGroups(), byKey=new Map(groups.map(g=>[g.key,g]));
+  const out=[];
+  if(byKey.has('')) out.push(byKey.get(''));
+  ROOMS.forEach(r=>out.push(byKey.get(r.toLowerCase())||{key:r.toLowerCase(),name:r,photos:[]}));
+  groups.forEach(g=>{ if(g.key&&!ROOM_KEYS.includes(g.key)) out.push(g); });
+  return out;
 }
 /* Photos grouped by the spot they were taken, newest spot first; unlabelled ones on top so they get named. */
 function photoGroups(){
@@ -2722,6 +2773,9 @@ function viewHouse(){
   </div>
   <p class="hint">Filter sizes and part numbers, so you measure once. Fill a size in any time; tap Edit to add a line or take one out.</p>
   ${S.specs.map(s=>`<div class="specrow">
+    ${s.photo&&S.photos.some(p=>p.id===s.photo)&&!editing
+      ?`<button class="spthumb" data-act="viewphoto" data-id="${s.photo}" aria-label="Open the photo">${thumbOf(s.photo)?`<img src="${thumbOf(s.photo)}" alt="">`:I.img}</button>`
+      :`<button class="spthumb add" data-act="specphoto" data-sid="${s.id}" aria-label="${s.photo?'Replace the photo':'Add a photo'}">${I.cam}</button>`}
     <input data-act="spec" data-sid="${s.id}" data-f="k" value="${esc(s.k)}" placeholder="What">
     <input data-act="spec" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Size or part no.">
     ${editing?`<button class="icb" data-act="delspec" data-sid="${s.id}" aria-label="Remove this size">${I.trash}</button>`:''}</div>`).join('')}
@@ -2744,18 +2798,13 @@ function viewHouse(){
     </div>`; }).join('')}
   ${editing?`<button class="btn dash" style="margin-top:10px" data-act="newkeydate">${I.plus} Add a date</button>`:''}</section>
 
-  <section class="zone"><h2 class="sec">Where things stand</h2>
-  <dl class="kv">
-    <dt>Setup</dt><dd>${setupOpen()?`${vis.filter(t=>t.done).length} of ${vis.length} items`:'Finished'}</dd>
-    <dt>${y}</dt><dd>${yd} of ${seasonalTotal(y)} seasonal ticks</dd>
-    <dt>Records</dt><dd>${S.logs.length}</dd>
-    <dt>Photos</dt><dd>${S.photos.length}</dd>
-    <dt>Logged spend</dt><dd>${spend?'$'+spend.toLocaleString():'Nothing logged yet'}</dd>
-  </dl>
-  ${!setupOpen()?`<p class="hint" style="margin-top:12px">The setup checklist is done and its tab is tucked away.</p>
-    <div class="btns" style="margin-top:0"><button class="btn" data-act="reopenall">Show the setup list again</button></div>`:
-    closedList().length?`<p class="hint" style="margin-top:12px">Closed out: ${closedList().map(p=>
-    `${esc(p)} <button class="btn" style="display:inline-flex;width:auto;min-height:0;padding:3px 9px;font-size:12.5px" data-act="reopenphase" data-v="${esc(p)}">bring back</button>`).join(' · ')}</p>`:''}</section>
+  ${/* the stats are gone; only the way back to a finished or closed-out setup list remains, and only when needed */
+    !setupOpen()?`<section class="zone"><h2 class="sec">Setup checklist</h2>
+    <p class="hint" style="margin-top:0">The setup checklist is done and its tab is tucked away.</p>
+    <div class="btns" style="margin-top:0"><button class="btn" data-act="reopenall">Show the setup list again</button></div></section>`:
+    closedList().length?`<section class="zone"><h2 class="sec">Setup checklist</h2>
+    <p class="hint" style="margin-top:0">Closed out: ${closedList().map(p=>
+    `${esc(p)} <button class="btn" style="display:inline-flex;width:auto;min-height:0;padding:3px 9px;font-size:12.5px" data-act="reopenphase" data-v="${esc(p)}">bring back</button>`).join(' · ')}</p></section>`:''}
 
   <section class="zone"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <h2 class="sec" style="margin:0;flex:1">Plans and papers</h2>
@@ -3198,12 +3247,15 @@ function modalHTML(){
       <button class="btn solid" data-act="dopaste">Restore</button>`);
   }
   if(modal.kind==='backup'){
-    const kb=Math.round(modal.text.length/1024);
+    const kb=Math.round(modal.text.length/1024), small=modal.text.length<150000;
     return sheet('Back up everything',`
-      <p class="hint" style="margin:0">One file with every item, record, size, photo${modal.kept?' and '+modal.kept+' uploaded file'+(modal.kept===1?'':'s'):''} — ${kb>1024?(kb/1024).toFixed(1)+' MB':kb+' KB'}.${modal.skipped&&modal.skipped.length?' Left out as too large: '+esc(modal.skipped.join(', '))+' — those still live in the shared house.':''} Saving straight to a file is blocked in some browsers, so copying the text always works as a fallback.</p>
-      <button class="btn solid" data-act="dlfile">${I.save} Save as a file</button>
+      <p class="hint" style="margin:0">One file with every item, record, size, photo${modal.kept?' and '+modal.kept+' uploaded file'+(modal.kept===1?'':'s'):''} — ${kb>1024?(kb/1024).toFixed(1)+' MB':kb+' KB'}.${
+        modal.skipped&&modal.skipped.length?' Left out, too large or unreachable right now: '+esc(modal.skipped.join(', '))+' — those still live in the shared house.':''}${
+        modal.missingPhotos&&modal.missingPhotos.length?` ${modal.missingPhotos.length===1?'1 photo':modal.missingPhotos.length+' photos'} couldn't be downloaded right now and aren't included — try again with a better signal.`:''}</p>
+      ${modal.canShare?`<button class="btn solid" data-act="sharebackup">${I.save} Save to Files or share</button>`:''}
+      <button class="btn ${modal.canShare?'':'solid'}" data-act="dlfile">${I.save} Download the file</button>
       <button class="btn" data-act="copybackup">Copy the backup text</button>
-      <textarea rows="6" readonly id="bkp">${esc(modal.text)}</textarea>`);
+      ${small?`<textarea rows="6" readonly id="bkp">${esc(modal.text)}</textarea>`:''}`);
   }
   if(modal.kind==='calendar'){
     return sheet('Add to your calendar',`
@@ -3227,7 +3279,12 @@ function modalHTML(){
         <button class="btn" data-act="pstep" data-d="1" ${i>=list.length-1?'disabled':''}>Later ${I.right}</button>
       </div><div class="m" style="justify-content:center">${i+1} of ${list.length} at this spot</div>`:''}
       <label class="lbl">What is this<input data-act="caption" data-id="${p.id}" value="${esc(p.caption)}" placeholder="Crack over the garage door"></label>
-      <label class="lbl">Where on the property<input data-act="where" data-id="${p.id}" list="spots" value="${esc(p.where)}" placeholder="North wall, well head, utility room"></label>
+      <label class="lbl">Album<select data-act="where" data-id="${p.id}">${(()=>{
+        const cur=(p.where||'').trim(), curKey=cur.toLowerCase();
+        const opts=[['','Unsorted'],...ROOMS.map(r=>[r,r])];
+        allAlbums().forEach(g=>{ if(g.key&&!ROOM_KEYS.includes(g.key)) opts.push([g.name,g.name]); });
+        if(cur&&!opts.some(([v])=>v.toLowerCase()===curKey)) opts.push([cur,cur]);
+        return opts.map(([v,l])=>`<option value="${esc(v)}" ${v.toLowerCase()===curKey?'selected':''}>${esc(l)}</option>`).join(''); })()}</select></label>
       <datalist id="spots">${spots.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
       <label class="lbl">Notes<textarea rows="4" data-act="pnote" data-id="${p.id}" placeholder="What you were looking at, what it measured, what to watch for next time">${esc(p.note||'')}</textarea></label>
       <label class="lbl">Look at this again<select data-act="precheck" data-id="${p.id}">
@@ -3387,6 +3444,9 @@ document.addEventListener('input',async e=>{
   if(!a) return;
   if(a==='who'){ LS('hq:who',el.value.trim()||null); return; }
   if(a==='pname'){ S.propertyName=el.value; renderHeader(); saveSoon(); return; }
+  if(a==='albumname'){ const key=openAlbum, name=el.value;
+    S.photos.forEach(ph=>{ if((ph.where||'').trim().toLowerCase()===key) ph.where=name; });
+    openAlbum=name.trim().toLowerCase(); saveSoon(); render(); return; }
   if(a==='spec'){ const s=S.specs.find(x=>x.id===el.dataset.sid); if(s){ s[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='eq'){ const q2=S.equipment.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='espec'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), sp=q2&&q2.specs.find(x=>x.id===el.dataset.sid);
@@ -3469,7 +3529,7 @@ document.addEventListener('click',async e=>{
     const n=list.findIndex(x=>x.id===cur.id)+(+btn.dataset.d);
     if(n<0||n>=list.length) return;
     modal.id=list[n].id; await loadPhotos([modal.id]); render(); return; }
-  if(a==='tab'){ tab=v; editing=false; searchOpen=false; q=''; closeModal(); render(); return; }
+  if(a==='tab'){ tab=v; editing=false; searchOpen=false; q=''; openAlbum=null; closeModal(); render(); return; }
   if(a==='settings'){ if(tab==='settings'){ tab=VIEWS[prevTab]&&prevTab!=='settings'?prevTab:'seasons'; } else { prevTab=tab; tab='settings'; }
     editing=false; closeModal(); render(); return; }
   if(a==='edit'){ editing=!editing; render(); return; }
@@ -3582,10 +3642,11 @@ document.addEventListener('click',async e=>{
     const refs=[];
     [...S.tasks,...S.logs,...(S.inventory||[])].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
     const profOf=(S.pets||[]).filter(p=>p.photoId===id); profOf.forEach(p=>p.photoId='');
+    const specOf=(S.specs||[]).filter(x=>x.photo===id); specOf.forEach(x=>x.photo='');
     if(S.photoData) delete S.photoData[id];
     const th=thumbCache[id]; delete photoCache[id]; delete thumbCache[id];
     deleted('the photo'+(ph.caption?' \u201c'+ph.caption+'\u201d':''),
-      ()=>{ S.photos.splice(i,0,ph); refs.forEach(([o,j])=>o.photos.splice(j,0,id)); profOf.forEach(p=>p.photoId=id); photoCache[id]=data; thumbCache[id]=th; if(inline) S.photoData[id]=inline; },
+      ()=>{ S.photos.splice(i,0,ph); refs.forEach(([o,j])=>o.photos.splice(j,0,id)); profOf.forEach(p=>p.photoId=id); specOf.forEach(x=>x.photo=id); photoCache[id]=data; thumbCache[id]=th; if(inline) S.photoData[id]=inline; },
       ()=>{ store.del(PKEY(id)); store.del(TKEY(id)); cloud.deletePhoto(id); });
     return; }
 
@@ -3657,6 +3718,16 @@ document.addEventListener('click',async e=>{
   if(a==='gosearch'){ searchOpen=!searchOpen; if(!searchOpen) q=''; render();
     if(searchOpen){ window.scrollTo(0,0); const n=document.getElementById('q'); if(n) n.focus(); } return; }
   if(a==='closesearch'){ searchOpen=false; q=''; render(); return; }
+  if(a==='album'){ openAlbum=v; editing=false; render(); window.scrollTo(0,0); return; }
+  if(a==='albums'){ openAlbum=null; editing=false; render(); window.scrollTo(0,0); return; }
+  if(a==='snapalbum'){ const g=allAlbums().find(x=>x.key===openAlbum); const where=g?g.name:'';
+    pick(async files=>{ let n=0; for(const f of files){ if(await addPhoto(f,{caption:'',where})) n++; }
+      if(files.length>1) setNote(n===files.length?`${n} photos added.`:`${n} of ${files.length} photos added.`,'ok');
+      render(); }); return; }
+  if(a==='specphoto'){ const sp=S.specs.find(x=>x.id===btn.dataset.sid); if(!sp) return;
+    pick(async files=>{ if(!files[0]) return;
+      const pid=await addPhoto(files[0],{caption:sp.k||'Size',where:'Sizes'});
+      if(pid){ sp.photo=pid; save(); } render(); }); return; }
   if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
   if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
   if(a==='inv'){ const x=(S.inventory||[]).find(z=>z.id===id); if(!x) return;
@@ -3752,8 +3823,12 @@ document.addEventListener('click',async e=>{
       setNote('The download was blocked. Try the print button instead.');
     return; }
   if(a==='backup'){ const from=modal&&modal.kind==='erase'?{kind:'erase',cloud:false,confirm:false}:null; await backup(); if(from&&modal&&modal.kind==='backup') modal.back=from; render(); return; }
-  if(a==='dlfile'){ if(saveFile(modal.text,`househq-${new Date().toISOString().slice(0,10)}.json`,'application/json')) markBackedUp();
+  if(a==='dlfile'){ if(saveFile(modal.text,backupName(),'application/json')) markBackedUp();
     else setNote('This browser blocked the download. Copy the text instead.'); return; }
+  if(a==='sharebackup'){ const f=new File([modal.text],backupName(),{type:'application/json'});
+    try{ await navigator.share({files:[f],title:'House HQ backup'}); markBackedUp(); setNote('Backup saved.','ok'); }
+    catch(e){ if(e&&e.name!=='AbortError') setNote('Sharing did not work here. Download the file or copy the text instead.'); }
+    return; }
   if(a==='copybackup'){
     const t=modal.text;
     if(navigator.clipboard) navigator.clipboard.writeText(t).then(()=>{ setNote('Backup copied.','ok'); markBackedUp(); },()=>selectText('bkp'));
@@ -3888,22 +3963,42 @@ async function eraseEverything(alsoCloud){
 
 /* ---------- backup / restore / export ---------- */
 const BACKUP_FILE_MAX=15*1024*1024, BACKUP_FILES_TOTAL=40*1024*1024;
+// Waits for p, but gives up (resolves null) after ms, so one slow download can't stall everything.
+const upTo=(p,ms)=>Promise.race([Promise.resolve(p).catch(()=>null),new Promise(r=>setTimeout(()=>r(null),ms))]);
 async function backup(){
-  setNote('Gathering everything…','ok');
-  const photos={};
-  for(const p of S.photos){ const d=photoCache[p.id]??(S.photoData&&S.photoData[p.id])??await store.get(PKEY(p.id)); if(d) photos[p.id]=d; }
-  // the deed, the well report, the blueprints: in the backup too, up to a sensible size
-  const files={}; let kept=0, skipped=[], bytes=0;
-  for(const f of (S.files||[])){
-    if(!f.stored) continue;
-    if(f.size>BACKUP_FILE_MAX||bytes+f.size>BACKUP_FILES_TOTAL){ skipped.push(f.name); continue; }
-    const d=await getFileData(f.id);
-    if(!d){ skipped.push(f.name); continue; }
-    try{ files[f.id]=await base64Of(d); kept++; bytes+=f.size; }catch(e){ skipped.push(f.name); }
+  try{
+    const files0=(S.files||[]).filter(f=>f.stored), total=S.photos.length+files0.length;
+    let done=0;
+    const tick=()=>{ done++; if(done%3===0||done===total) setNote(`Gathering everything… ${done} of ${total}`,'ok'); };
+    setNote(total?`Gathering everything… 0 of ${total}`:'Gathering everything…','ok');
+    // photos: from this phone, or from the cloud if only your partner's phone has them yet
+    const photos={}, missingPhotos=[];
+    for(const p of S.photos){
+      let d=photoCache[p.id]??(S.photoData&&S.photoData[p.id])??await upTo(store.get(PKEY(p.id)),5000);
+      if(!d&&cloud.status==='on') d=await upTo(cloud.fetchPhoto(p.id),10000);
+      if(d) photos[p.id]=d; else missingPhotos.push(p.caption||'a photo');
+      tick();
+    }
+    // the deed, the well report, the blueprints: in the backup too, up to a sensible size
+    const files={}; let kept=0, skipped=[], bytes=0;
+    for(const f of files0){
+      if(f.size>BACKUP_FILE_MAX||bytes+f.size>BACKUP_FILES_TOTAL){ skipped.push(f.name); tick(); continue; }
+      const d=await upTo(getFileData(f.id),15000);
+      if(!d){ skipped.push(f.name); tick(); continue; }
+      try{ files[f.id]=await base64Of(d); kept++; bytes+=f.size; }catch(e){ skipped.push(f.name); }
+      tick();
+    }
+    const text=JSON.stringify({app:'househq',v:4,state:S,photos,files});
+    setNote('');
+    modalAt=Date.now(), modal={kind:'backup',text,kept,skipped,missingPhotos,canShare:canShareBackup(text)}; render();
+  }catch(e){
+    console.error(e);
+    setNote('The backup ran into a problem and stopped. Check your signal and try again.');
   }
-  const text=JSON.stringify({app:'househq',v:4,state:S,photos,files},null,1);
-  setNote('');
-  modalAt=Date.now(), modal={kind:'backup',text,kept,skipped}; render();
+}
+const backupName=()=>`househq-${new Date().toISOString().slice(0,10)}.json`;
+function canShareBackup(text){
+  try{ return !!(navigator.canShare&&navigator.canShare({files:[new File([text||'{}'],backupName(),{type:'application/json'})]})); }catch(e){ return false; }
 }
 function markBackedUp(){ S.lastBackup=new Date().toISOString(); save(); if(tab==='settings'&&!modal) render(); }
 function saveFile(text,name,type){
@@ -3992,6 +4087,7 @@ function pickBackupFile(){
 function selectText(elId){
   const ta=document.getElementById(elId);
   if(ta){ ta.focus(); ta.select(); setNote('Copy was blocked. The text is selected, so use your copy button.'); }
+  else setNote('Copying was blocked here. Use the save or download button instead.');
 }
 /* ---------- handoff pack ----------
    Everything the next person needs on one page: the adjuster, the buyer,
