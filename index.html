@@ -1061,6 +1061,13 @@ const FILE_CATS=['Plans','Budget','Papers'];
 /* Files can also be pinned to one piece of equipment, a vehicle or a pet, with a
    category of "eq:<id>" / "veh:<id>" / "pet:<id>". This turns that into something readable. */
 function catLabel(cat){
+  const bm=/^bill:(.+)$/.exec(cat||'');
+  if(bm){ for(const l of (S.budget||[])){ const e=(l.entries||[]).find(x=>x.id===bm[1]);
+      if(e) return 'Bill: '+l.name+(num(e.amount)?' '+money(num(e.amount)):'')+(e.date?' · '+fmtDate(e.date):''); }
+    return ''; }
+  const fm=/^fuel:(.+)$/.exec(cat||'');
+  if(fm){ const f=(S.fuel||[]).find(x=>x.id===fm[1]); if(!f) return '';
+    return (f.kind==='prepay'?'Fuel prepay':'Fuel delivery')+(f.date?' · '+fmtDate(f.date):''); }
   const m=/^(eq|veh|pet):(.+)$/.exec(cat||'');
   if(!m) return cat||'';
   const list=m[1]==='eq'?(S.equipment||[]):m[1]==='veh'?(S.vehicles||[]):(S.pets||[]);
@@ -1069,6 +1076,12 @@ function catLabel(cat){
   const pre=m[1]==='eq'?'Equipment: ':m[1]==='veh'?'Vehicle: ':'Pet: ';
   return pre+(item.name||'unnamed');
 }
+const hasFiles=cat=>(S.files||[]).some(f=>f.cat===cat);
+/* When a bill or fuel entry is deleted, its paperwork drops into Papers instead of vanishing.
+   Returns a function that puts it back (for Undo). */
+function releaseFiles(cat){ const moved=(S.files||[]).filter(f=>f.cat===cat); moved.forEach(f=>f.cat='Papers'); return ()=>moved.forEach(f=>f.cat=cat); }
+/* The sheet a file sheet should come back to: a bill, a fuel delivery or a prepay. */
+const sheetBack=()=>modal&&['spend','fuel','prepay'].includes(modal.kind)?modal:null;
 const fileCache={};
 const prettySize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const isSheet=f=>/sheet|excel|csv|numbers/i.test(f.type||'')||/\.(xlsx?|xlsm|csv|numbers)$/i.test(f.name||'');
@@ -2757,7 +2770,7 @@ function fuelHTML(y){
   ${history.map(d=>isPrepay(d)?`<div class="row">
     <button class="fico" data-act="prepay" data-id="${d.id}" aria-label="Edit">${I.coin}</button>
     <button class="body" data-act="prepay" data-id="${d.id}">
-      <div class="t">${esc(fmtDate(d.date))} · prepaid ${money(num(d.amount))}</div>
+      <div class="t">${esc(fmtDate(d.date))} · prepaid ${money(num(d.amount))}${hasFiles('fuel:'+d.id)?` <span class="tag link">${I.doc}</span>`:''}</div>
       <div class="m">${[num(d.price)?'$'+num(d.price).toFixed(2)+'/gal max':'',d.until?'good through '+fmtDate(d.until):'',d.vendor,d.note].filter(Boolean).map(esc).join(' · ')}</div>
     </button>
     ${editing?`<button class="icb" data-act="delfuel" data-id="${d.id}" aria-label="Remove">${I.trash}</button>`:''}
@@ -2771,7 +2784,7 @@ function fuelHTML(y){
   </div>`:`<div class="row">
     <button class="fico" data-act="fuel" data-id="${d.id}" aria-label="Edit">${I.drop}</button>
     <button class="body" data-act="fuel" data-id="${d.id}">
-      <div class="t">${esc(fmtDate(d.date))}${d.gallons?' · '+esc(String(Math.round(num(d.gallons)*10)/10))+' gal':''}${d.fromPrepay?' <span class="tag link">from prepay</span>':d.preseason?' <span class="tag link">pre-season</span>':''}</div>
+      <div class="t">${esc(fmtDate(d.date))}${d.gallons?' · '+esc(String(Math.round(num(d.gallons)*10)/10))+' gal':''}${d.fromPrepay?' <span class="tag link">from prepay</span>':d.preseason?' <span class="tag link">pre-season</span>':''}${hasFiles('fuel:'+d.id)?` <span class="tag link">${I.doc}</span>`:''}</div>
       <div class="m">${[fuelCost(d)?money(fuelCost(d)):'',num(d.price)?'$'+num(d.price).toFixed(2)+'/gal':'',
         num(d.pctBefore)||num(d.pctAfter)?(num(d.pctBefore)?num(d.pctBefore)+'%':'?')+' → '+(num(d.pctAfter)?num(d.pctAfter)+'%':'?'):'',d.vendor,d.note].filter(Boolean).map(esc).join(' · ')}</div>
     </button>
@@ -3347,7 +3360,7 @@ function modalHTML(){
       <button class="btn solid" data-act="newspend" data-id="${l.id}">${I.plus} Add a bill</button>
       ${yi.length?`<div>${yi.map(it=>it.kind==='bill'
         ?`<button class="row billrow" data-act="spendedit" data-id="${it.ref.id}" data-line="${l.id}">
-            <div class="body"><div class="t">${money(it.amt)}</div><div class="m">${esc([fmtDate(it.date),it.ref.note].filter(Boolean).join(' · '))}</div></div>
+            <div class="body"><div class="t">${money(it.amt)}${hasFiles('bill:'+it.ref.id)?` <span class="tag link">${I.doc} invoice</span>`:''}</div><div class="m">${esc([fmtDate(it.date),it.ref.note].filter(Boolean).join(' · '))}</div></div>
             <span class="achev">${I.right}</span></button>`
         :`<div class="row billrow"><div class="body"><div class="t">${money(it.amt)}</div>
             <div class="m">${esc([fmtDate(it.date),src[it.kind],it.kind==='buy'?it.ref.title:it.kind==='record'?(it.ref.subject||it.ref.what):it.ref.vendor].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`
@@ -3383,6 +3396,8 @@ function modalHTML(){
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
       </div>
       <input data-m="note" value="${esc(d.note)}" placeholder="What it was — e.g. October bill, quarterly spray">
+      <h3 class="sub" style="margin:6px 0 0">Invoice or receipt</h3>
+      ${filesSection('bill:'+d.id,'Nothing attached. Upload the PDF or a photo of the bill, or paste a link to it.')}
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="delspendsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this bill'}</button>`}`,true);
   }
@@ -3410,7 +3425,7 @@ function modalHTML(){
       <label class="lbl">Name<input data-m="name" value="${esc(d.name)}" placeholder="What is it"></label>
       ${link?`<label class="lbl">Web address<input data-m="url" value="${esc(d.url)}" placeholder="https://" inputmode="url" autocapitalize="none" spellcheck="false"></label>`:''}
       <label class="lbl">Where it belongs<select data-m="cat">${
-        (/^(eq|veh|pet):/.test(d.cat||'')&&catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
+        (/^(eq|veh|pet|bill|fuel):/.test(d.cat||'')&&catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
           .map(([val,lab])=>`<option value="${esc(val)}" ${d.cat===val?'selected':''}>${esc(lab)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note)}" placeholder="A note about it">
       <label class="lbl">Warranty or coverage ends <span style="font-weight:400;color:var(--ink70)">(optional)</span><input type="date" data-m="expires" value="${esc(d.expires||'')}"></label>
@@ -3486,6 +3501,8 @@ function modalHTML(){
       <label class="lbl">Budget line<select data-m="lineId"><option value="">None</option>${
         (S.budget||[]).map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note)}" placeholder="Contract, ticket number, anything else">
+      <h3 class="sub" style="margin:6px 0 0">Ticket or invoice</h3>
+      ${filesSection('fuel:'+d.id,'Nothing attached. Upload the delivery ticket or invoice, or paste a link.')}
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="delfuelsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this delivery'}</button>`}`,true);
   }
@@ -3505,6 +3522,8 @@ function modalHTML(){
       <label class="lbl">Budget line<select data-m="lineId"><option value="">None</option>${
         (S.budget||[]).map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note||'')}" placeholder="Receipt or account number, anything else">
+      <h3 class="sub" style="margin:6px 0 0">Receipt or agreement</h3>
+      ${filesSection('fuel:'+d.id,'Nothing attached. Upload the receipt or the prepay agreement.')}
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="delfuelsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this prepay'}</button>`}`,true);
   }
@@ -4206,11 +4225,11 @@ document.addEventListener('click',async e=>{
     if(modal&&!modal.confirm){ modal.confirm=true; render(); return; }
     const i=S.fuel.findIndex(x=>x.id===id); if(i<0) return;
     modal=null;   // drop the sheet without committing, or it writes the entry back
-    const [d]=S.fuel.splice(i,1);
-    deleted((isReading(d)?'the reading on ':isPrepay(d)?'the prepay on ':'the delivery on ')+fmtDate(d.date),()=>S.fuel.splice(i,0,d)); return; }
+    const [d]=S.fuel.splice(i,1), kept=releaseFiles('fuel:'+d.id);
+    deleted((isReading(d)?'the reading on ':isPrepay(d)?'the prepay on ':'the delivery on ')+fmtDate(d.date),()=>{ S.fuel.splice(i,0,d); kept(); }); return; }
   if(a==='delfuel'){ const i=S.fuel.findIndex(x=>x.id===id); if(i<0) return;
-    const [d]=S.fuel.splice(i,1);
-    deleted('the delivery on '+fmtDate(d.date),()=>S.fuel.splice(i,0,d)); return; }
+    const [d]=S.fuel.splice(i,1), kept=releaseFiles('fuel:'+d.id);
+    deleted((isReading(d)?'the reading on ':isPrepay(d)?'the prepay on ':'the delivery on ')+fmtDate(d.date),()=>{ S.fuel.splice(i,0,d); kept(); }); return; }
   if(a==='newkeydate'){ modalAt=Date.now();
     modal={kind:'keydate',isNew:true,draft:{id:uid(),title:'',date:'',every:0,note:''}}; render(); return; }
   if(a==='keydate'){ const k=(S.keyDates||[]).find(x=>x.id===id); if(!k) return;
@@ -4270,17 +4289,17 @@ document.addEventListener('click',async e=>{
     await store.del(PREJOIN_KEY); prejoin=null; render(); return; }
   if(a==='prejoindrop'){ await store.del(PREJOIN_KEY); prejoin=null; render(); return; }
   if(a==='pasterestore'){ modalAt=Date.now(); modal={kind:'paste'}; render(); return; }
-  if(a==='openfile'){ await openFile(id); return; }
-  if(a==='addfile'){ const cat=v;
+  if(a==='openfile'){ const back=sheetBack(); await openFile(id); if(back&&modal&&modal.kind==='fileview') modal.back=back; return; }
+  if(a==='addfile'){ const cat=v, back=sheetBack();
     pickDoc(async f=>{ const rec=await addFile(f,{cat});
-      if(rec){ modalAt=Date.now(); modal={kind:'fileedit',isNew:true,draft:{...rec}}; }
+      if(rec){ modalAt=Date.now(); modal={kind:'fileedit',isNew:true,back,draft:{...rec}}; }
       render(); });
     return; }
   if(a==='addlink'){ modalAt=Date.now();
-    modal={kind:'fileedit',isNew:true,draft:{id:uid(),name:'',url:'',cat:v,note:'',stored:false,size:0,type:'',
+    modal={kind:'fileedit',isNew:true,back:sheetBack(),draft:{id:uid(),name:'',url:'',cat:v,note:'',stored:false,size:0,type:'',
       addedAt:new Date().toISOString().slice(0,16).replace('T',' ')}};
     render(); return; }
-  if(a==='fileedit'){ const f=S.files.find(x=>x.id===id); modalAt=Date.now(); modal={kind:'fileedit',draft:{...f}}; render(); return; }
+  if(a==='fileedit'){ const f=S.files.find(x=>x.id===id); modalAt=Date.now(); modal={kind:'fileedit',back:sheetBack(),draft:{...f}}; render(); return; }
   if(a==='delfile'){ const i=S.files.findIndex(x=>x.id===id); if(i<0) return;
     const [f]=S.files.splice(i,1), data=fileCache[id];
     delete fileCache[id];
@@ -4311,7 +4330,8 @@ document.addEventListener('click',async e=>{
     const l=(S.budget||[]).find(o=>(o.entries||[]).some(e=>e.id===id)); if(!l) return;
     const back=modal&&modal.back; modal=back||null;   // back to the category, without re-saving the bill
     const i=l.entries.findIndex(e=>e.id===id), [e]=l.entries.splice(i,1);
-    deleted(money(num(e.amount))+' from '+l.name,()=>l.entries.splice(i,0,e)); return; }
+    const kept=releaseFiles('bill:'+e.id);
+    deleted(money(num(e.amount))+' from '+l.name,()=>{ l.entries.splice(i,0,e); kept(); }); return; }
   if(a==='dellinesheet'){
     if(modal&&modal.kind==='line'&&!modal.confirm){ modal.confirm=true; render(); return; }
     const i=S.budget.findIndex(x=>x.id===id); if(i<0) return;
@@ -4320,7 +4340,8 @@ document.addEventListener('click',async e=>{
     // its fuel, purchases and records drop to "no category" so their spending still counts
     const moved=[...(S.logs||[]),...(S.fuel||[]),...(S.buy||[])].filter(x=>x.lineId===l.id);
     moved.forEach(x=>x.lineId='');
-    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); }); return; }
+    const kept=(l.entries||[]).map(e=>releaseFiles('bill:'+e.id));   // its bills' invoices go to Papers
+    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); kept.forEach(k=>k()); }); return; }
   if(a==='quickcat'){ S.budget.push({id:uid(),name:v,planned:0,entries:[]}); render(); save(); return; }
   if(a==='delspend'){ const l=S.budget.find(x=>x.id===btn.dataset.line); if(!l) return;
     const i=(l.entries||[]).findIndex(e=>e.id===id); if(i<0) return;
