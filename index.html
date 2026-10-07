@@ -1710,7 +1710,8 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 .btn:active{filter:brightness(.94)}
 .btn:disabled,.tbtn:disabled{opacity:.55;pointer-events:none}
 .btns{display:grid;gap:8px;margin-top:10px}
-.btns.h{grid-auto-flow:column;grid-auto-columns:1fr}
+.btns.h{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}   /* wraps to a new row instead of running off the screen */
+.btns.h>*{min-width:0}
 .icb{background:none;border:0;color:${t.ink70};padding:6px;line-height:0;border-radius:8px;
   min-width:32px;min-height:32px;display:inline-grid;place-items:center}
 
@@ -2757,7 +2758,7 @@ function fuelHTML(y){
       </div>
       <button class="btn" style="margin-top:12px" data-act="prepay" data-id="${pp.id}">${I.pencil} Edit this prepay</button></div>`:''}
     </div>`:''}
-  <div class="card"><div class="inner" style="padding-top:14px">
+  ${f.gal?`  <div class="card"><div class="inner" style="padding-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <span class="bignum">${f.gal?'$'+f.avg.toFixed(2):'—'}<small>${f.gal?'a gallon in '+y:'nothing logged in '+y}</small></span>
       <span class="hint" style="margin:0">${f.gal?Math.round(f.gal)+' gal · '+money(f.cost):''}</span>
@@ -2766,7 +2767,7 @@ function fuelHTML(y){
       avgOf(inS)>avgOf(pre)?' — pre-buying saved about '+money((avgOf(inS)-avgOf(pre))*pre.reduce((a,d)=>a+num(d.gallons),0)):''}.</p>`:''}
     ${p.gal&&f.gal?`<p class="trend" style="margin:8px 0 0">${y-1} came in at $${p.avg.toFixed(2)} a gallon — ${
       f.avg===p.avg?'the same':(f.avg>p.avg?'up ':'down ')+'$'+Math.abs(f.avg-p.avg).toFixed(2)}.</p>`:''}
-  </div></div>
+  </div></div>`:''}
   ${history.map(d=>isPrepay(d)?`<div class="row">
     <button class="fico" data-act="prepay" data-id="${d.id}" aria-label="Edit">${I.coin}</button>
     <button class="body" data-act="prepay" data-id="${d.id}">
