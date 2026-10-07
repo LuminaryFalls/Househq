@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, tankOpen=false, prepayOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1852,6 +1852,14 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .sizerow .szn{font-size:13px;color:${t.ink70};overflow-wrap:anywhere}
 .sizerow .achev{color:${t.ink70};display:grid}
 .sizerow:active{opacity:.7}
+.fuelsum{display:grid;gap:6px;width:100%;min-height:0;margin:0;padding:12px 14px;border:0;border-radius:0;background:none;text-align:left;color:${t.ink}}
+.fuelsum .fs-top{display:flex;align-items:baseline;gap:8px}
+.fuelsum .fs-top b{font-size:20px;font-weight:800}
+.fuelsum .fs-top span{font-size:13.5px;color:${t.ink70}}
+.fuelsum .fs-chev{margin-left:auto;display:grid;align-self:center;transition:transform .2s}
+.fuelsum .fs-chev.open{transform:rotate(90deg)}
+.fuelsum .fs-sub{font-size:13px;color:${t.ink70}}
+.tankbar.slim{height:6px;margin:0}
 .tankbar{position:relative;height:14px;border-radius:99px;background:${t.ink}1A;margin:12px 0 4px;overflow:visible}
 .tankbar i{display:block;height:100%;border-radius:99px;transition:width .3s}
 .tankbar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:${t.ink}55;border-radius:2px}
@@ -1862,6 +1870,23 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .tankfacts b{font-weight:700}
 .chk{display:flex;align-items:center;gap:10px;font-size:15px;padding:4px 0}
 .chk input{width:22px;height:22px;min-height:0;accent-color:${t.accent}}
+.mchart{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;margin-top:14px}
+.mcol{display:grid;grid-template-rows:14px 72px 16px;justify-items:center;gap:2px;min-width:0}
+.mcol .mval{font-size:9px;color:${t.ink70};white-space:nowrap;overflow:visible}
+.mcol .mbar{width:100%;height:100%;display:flex;align-items:flex-end;border-radius:4px;background:${t.ink}0F}
+.mcol .mbar i{display:block;width:100%;border-radius:4px;background:${t.accent}99}
+.mcol.cur .mbar i{background:${t.accent}}
+.mcol b{font-size:11px;color:${t.ink70};font-weight:600}
+.mcol.cur b{color:${t.ink}}
+.catrow{display:flex;align-items:center;gap:10px;width:100%;min-height:0;padding:12px 0;margin:0;border:0;border-radius:0;
+  border-bottom:1px solid ${t.rule};background:none;text-align:left;color:${t.ink}}
+.catrow .cattext{flex:1;min-width:0;display:grid;gap:2px}
+.catrow .cattext b{font-size:16px;font-weight:600}
+.catrow .cattext i,.catrow .catamt i{font-style:normal;font-size:12.5px;color:${t.ink70}}
+.catrow .catamt{display:grid;justify-items:end;gap:2px;flex:0 0 auto}
+.catrow .catamt b{font-size:17px;font-weight:700}
+.catrow .achev{color:${t.ink70};display:grid}
+.billrow{width:100%;min-height:0;margin:0;border-radius:0;background:none;border:0;border-bottom:1px solid ${t.rule};text-align:left;color:${t.ink};align-items:center}
 .specv-in{font-size:20px;font-weight:700;letter-spacing:.02em;overflow-wrap:anywhere}
 .specphoto-big{display:block;width:100%;padding:0;border-radius:14px;overflow:hidden;border:1px solid ${t.ink}24;background:${t.ground};aspect-ratio:4/3}
 .specphoto-big img{width:100%;height:100%;object-fit:cover;display:block}
@@ -2494,13 +2519,43 @@ const num=v=>{ const n=parseFloat(String(v??'').replace(/[^0-9.\-]/g,'')); retur
 const money=n=>{ const v=Math.round(n*100)/100;   // $800, $175.10 — never $175.1
   return '$'+v.toLocaleString(undefined,{minimumFractionDigits:v%1?2:0,maximumFractionDigits:2}); };
 const yearOf=d=>+String(d||'').slice(0,4);
-function lineSpent(l,y){
-  const e=(l.entries||[]).filter(x=>yearOf(x.date)===y).reduce((s,x)=>s+num(x.amount),0);
-  const b=(S.buy||[]).filter(x=>x.lineId===l.id&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
-  const L=prepayLedger(), f=(S.fuel||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+fuelSpend(x,L),0);
-  const r=(S.logs||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+num(x.cost),0);
-  return e+b+f+r;
+/* Everything that counts toward a category: bills entered on it, plus fuel, purchases and
+   service records assigned to it. Each is {date, amt, kind, ref}. */
+function catItems(l){
+  const L=prepayLedger(), out=[];
+  (l.entries||[]).forEach(e=>out.push({date:e.date||'',amt:num(e.amount),kind:'bill',ref:e}));
+  (S.buy||[]).filter(x=>x.lineId===l.id&&x.bought).forEach(b=>out.push({date:b.bought,amt:num(b.paid||b.est),kind:'buy',ref:b}));
+  (S.fuel||[]).filter(x=>x.lineId===l.id).forEach(f=>{ const a=fuelSpend(f,L); if(a) out.push({date:f.date||'',amt:a,kind:'fuel',ref:f}); });
+  (S.logs||[]).filter(x=>x.lineId===l.id&&num(x.cost)).forEach(r=>out.push({date:(r.date||'').slice(0,10),amt:num(r.cost),kind:'record',ref:r}));
+  return out;
 }
+/* Spending with no category: records, purchases and fuel not put on one. */
+function looseItems(){
+  const L=prepayLedger(), out=[];
+  (S.buy||[]).filter(x=>!x.lineId&&x.bought).forEach(b=>out.push({date:b.bought,amt:num(b.paid||b.est),kind:'buy',ref:b}));
+  (S.fuel||[]).filter(x=>!x.lineId).forEach(f=>{ const a=fuelSpend(f,L); if(a) out.push({date:f.date||'',amt:a,kind:'fuel',ref:f}); });
+  (S.logs||[]).filter(x=>!x.lineId&&num(x.cost)).forEach(r=>out.push({date:(r.date||'').slice(0,10),amt:num(r.cost),kind:'record',ref:r}));
+  return out;
+}
+const sumIn=(items,y)=>items.filter(it=>yearOf(it.date)===y).reduce((s,it)=>s+it.amt,0);
+/* Spent from Jan 1 to the same calendar day, for "this time last year". */
+const sumByDay=(items,y,md)=>items.filter(it=>yearOf(it.date)===y&&(it.date||'').slice(5,10)<=md).reduce((s,it)=>s+it.amt,0);
+const monthTotals=(items,y)=>{ const m=Array(12).fill(0); items.forEach(it=>{ if(yearOf(it.date)===y){ const k=+(it.date||'').slice(5,7)-1; if(k>=0&&k<12) m[k]+=it.amt; } }); return m; };
+const shortMoney=v=>v>=1000?'$'+(v/1000).toFixed(v>=10000?0:1)+'k':'$'+Math.round(v);
+function monthChart(m,highlight){
+  const max=Math.max(...m,0);
+  return `<div class="mchart">${m.map((v,i)=>`<div class="mcol ${i===highlight?'cur':''}">
+    <span class="mval">${v?shortMoney(v):''}</span><span class="mbar"><i style="height:${max?Math.max(v?4:0,v/max*100):0}%"></i></span><b>${'JFMAMJJASOND'[i]}</b></div>`).join('')}</div>`;
+}
+/* Compare with last year: up to today when looking at this year, the whole year otherwise. */
+function vsLastYear(items,y,total){
+  const now=new Date(), cur=y===now.getFullYear();
+  const prev=cur?sumByDay(items,y-1,isoOf(now).slice(5)):sumIn(items,y-1);
+  if(!prev) return '';
+  const d=total-prev;
+  return `${cur?'This time last year':'All of '+(y-1)}: ${money(prev)}${d?` — ${d>0?'up':'down'} ${money(Math.abs(d))}`:' — the same'}`;
+}
+function lineSpent(l,y){ return sumIn(catItems(l),y); }
 const logSpent=y=>S.logs.filter(l=>!l.lineId&&yearOf(l.date)===y).reduce((s,l)=>s+num(l.cost),0);   // records on a line count there instead
 const fuelCost=f=>num(f.total)||num(f.gallons)*num(f.price);   // what the fuel was worth
 const isPrepay=f=>f&&f.kind==='prepay';
@@ -2547,32 +2602,41 @@ function viewBudget(){
       </button>
       ${editing?`<button class="icb" data-act="delbuy" data-id="${b.id}" aria-label="Remove">${I.trash}</button>`:''}
     </div>`;
+  const nowD=new Date(), cur=y===nowD.getFullYear();
+  const cats=lines.map(l=>({l,items:catItems(l)})), loose_=looseItems();
+  const all=[...cats.flatMap(c=>c.items),...loose_];
+  const spentY=sumIn(all,y), looseY=sumIn(loose_,y);
+  const suggest=['Trash','Pest control','Electricity','Heating fuel','Internet','Water and septic','Maintenance and repairs']
+    .filter(n=>!lines.some(l=>(l.name||'').toLowerCase().includes(n.toLowerCase().split(' ')[0])));
   return `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:stretch">
     <div class="yearbar" style="flex:1;margin:0">
       <button data-act="year" data-v="${y-1}" ${y-1<Math.min(...years)?'disabled':''} aria-label="Previous year">${I.left}</button>
-      <div style="text-align:center"><b>${y}</b><small>${money(spent)} of ${money(planned)}</small></div>
+      <div style="text-align:center"><b>${y}</b><small>${money(spentY)} spent</small></div>
       <button data-act="year" data-v="${y+1}" ${y+1>now?'disabled':''} aria-label="Next year">${I.right}</button>
     </div>
-    <button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>
   </div>
+  <button class="btn solid" style="margin-bottom:14px" data-act="newspend">${I.plus} Add a bill or expense</button>
   <div class="card"><div class="inner" style="padding-top:14px">
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><b class="cond" style="font-size:22px">${money(spent)} spent</b><span class="hint" style="margin:0">${planned?money(Math.max(0,planned-spent))+' left':'no plan yet'}</span></div>
-    ${bar(spent,planned)}
-    ${planned&&spent>planned?`<p class="hint" style="margin:6px 0 0;color:var(--warn)">${money(spent-planned)} over the plan.</p>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <span class="bignum">${money(spentY)}<small>${cur?'so far in '+y:'in '+y}</small></span>
+    </div>
+    ${vsLastYear(all,y,spentY)?`<p class="trend" style="margin:6px 0 0">${esc(vsLastYear(all,y,spentY))}</p>`:''}
+    ${monthChart(monthTotals(all,y),cur?nowD.getMonth():-1)}
   </div></div>
 
-  <section class="grp zone"><h3>Budget lines<span>planned per year</span></h3>
-    ${lines.map(l=>{ const sp=lineSpent(l,y), pl=num(l.planned); return `<div class="row" style="flex-direction:column;gap:6px">
-      <div style="display:flex;gap:10px;align-items:center">
-        <button class="body" data-act="line" data-id="${l.id}"><div class="t">${esc(l.name)}</div>
-          <div class="m">${money(sp)}${pl?' of '+money(pl):''}</div></button>
-        ${editing?`<button class="icb" data-act="lineedit" data-id="${l.id}" aria-label="Edit">${I.pencil}</button>
-        <button class="icb" data-act="delline" data-id="${l.id}" aria-label="Remove">${I.trash}</button>`:''}
-      </div>${bar(sp,pl)}</div>`; }).join('')}
-    ${fromLogs?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">From service records</div><div class="m">${money(fromLogs)} · records not on a budget line — pick one when you edit a record</div></div></div>`:''}
-    ${loose?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">Purchases not on a line</div><div class="m">${money(loose)}</div></div></div>`:''}
-    ${looseFuel?`<div class="row" style="flex-direction:column;gap:6px"><div><div class="t" style="color:var(--ink70)">Fuel not on a line</div><div class="m">${money(looseFuel)} · put a delivery on a line below</div></div></div>`:''}
-    <button class="btn dash" style="margin-top:10px" data-act="newline">${I.plus} Add a budget line</button>
+  <section class="grp zone"><h3>Categories<span>${y}${sumIn(all,y-1)?' · '+(y-1)+' for comparison':''}</span></h3>
+    ${cats.map(({l,items})=>{ const ty=sumIn(items,y), ly=sumIn(items,y-1);
+      const yi=items.filter(it=>yearOf(it.date)===y).sort((p,q)=>(q.date||'').localeCompare(p.date||'')), last=yi[0];
+      return `<button class="catrow" data-act="line" data-id="${l.id}">
+        <span class="cattext"><b>${esc(l.name)}</b>
+          <i>${yi.length?yi.length+(yi.length===1?' entry':' entries')+' · last '+money(last.amt)+' on '+esc(fmtDate(last.date)):'Nothing yet in '+y}</i></span>
+        <span class="catamt"><b>${money(ty)}</b>${ly?`<i>${y-1}: ${money(ly)}</i>`:''}</span>
+        <span class="achev">${I.right}</span></button>`; }).join('')}
+    ${looseY?`<div class="catrow" style="cursor:default">
+        <span class="cattext"><b style="color:var(--ink70)">No category</b><i>Records, purchases or fuel not put in a category — pick one when you edit them</i></span>
+        <span class="catamt"><b>${money(looseY)}</b></span></div>`:''}
+    <button class="btn dash" style="margin-top:10px" data-act="newline">${I.plus} Add a category</button>
+    ${suggest.length?`<div class="chips" style="margin-top:10px;flex-wrap:wrap">${suggest.map(n=>`<button class="chip" data-act="quickcat" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}
   </section>
 
   <section class="grp zone"><h3>Things to buy<span>${open.length?money(open.reduce((s,b)=>s+num(b.est),0))+' to go':'nothing waiting'}</span></h3>
@@ -2640,39 +2704,46 @@ function fuelHTML(y){
       <b style="font-size:16px">Set up your propane tank</b>
       <p class="hint" style="margin:6px 0 10px">Your tank size and where the gauge was when you moved in — the line from your closing papers, like "320g × 65% × $1.31/g".</p>
       <button class="btn solid" data-act="fuelstart">${I.drop} Set up the tank</button></div></div>`
-  :`<div class="card"><div class="inner" style="padding-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <span class="bignum">${T.pct===null?'—':'~'+Math.round(T.pct)+'%'}<small>${T.gal===null?'no gauge reading yet':'about '+Math.round(T.gal)+' of '+T.size+' gal'}</small></span>
-        <button class="linkbtn" data-act="fueltank">${T.size} gal tank</button>
-      </div>
-      ${T.pct===null?'':`<div class="tankbar" aria-hidden="true"><i style="width:${Math.min(100,Math.max(0,T.pct)).toFixed(1)}%;background:${T.pct<=reorderPct()?'var(--warn)':'var(--good)'}"></i>
-        <b style="left:${reorderPct()}%"></b><b style="left:${tankFull()}%"></b></div>
-        <div class="tanklabels"><span style="left:${reorderPct()}%">${reorderPct()}% reorder</span><span style="left:${tankFull()}%">${tankFull()}% full</span></div>`}
-      <div class="tankfacts">
-        ${T.lastAt?`<div>${T.lastWhen==='delivery'?'Estimated from the delivery':'From the gauge'} on ${esc(fmtDate(T.lastAt))}</div>`:''}
-        ${T.perDay?`<div>Using about <b>${T.perDay.toFixed(1)} gal a day</b>${T.toReorder!==null?(T.toReorder<1?' — <b>at the reorder point now</b>':' — about <b>'+Math.round(T.toReorder)+' days</b> to '+reorderPct()+'%'):''}</div>`
-          :T.gal!==null?'<div>Log the gauge again in a week or two and it can tell you how fast you\'re using it.</div>':''}
-        ${T.used>0?`<div>Used so far: <b>${Math.round(T.used)} gal</b>${T.usedCost?' (≈ '+money(T.usedCost)+')':''}</div>`:''}
-        ${T.gal!==null&&T.toFull>0?`<div>Filling to ${tankFull()}%: about <b>${Math.round(T.toFull)} gal</b>${T.lastPrice?' ≈ <b>'+money(T.toFull*T.lastPrice)+'</b> at $'+T.lastPrice.toFixed(2)+'/gal':''}</div>`:''}
-      </div>
-      <div class="btns h" style="margin-top:12px">
-        <button class="btn" data-act="newreading">${'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18a8 8 0 1 1 16 0"/><line x1="12" y1="18" x2="16" y2="11"/></svg>'} Log the gauge</button>
-        <button class="btn solid" data-act="newfuel">${I.plus} Add a delivery</button>
-      </div></div></div>`}
-  ${pp?`<div class="card"><div class="inner" style="padding-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-        <span class="bignum">${money(Math.max(0,L.bal))}<small>left on prepay</small></span>
-        <button class="linkbtn" data-act="prepay" data-id="${pp.id}">${num(pp.price)?'$'+num(pp.price).toFixed(2)+'/gal':'Prepay'}</button>
-      </div>
-      <div class="tankbar" aria-hidden="true"><i style="width:${L.paid?Math.min(100,Math.max(0,L.bal)/L.paid*100).toFixed(1):0}%;background:var(--accent)"></i></div>
-      <div class="tankfacts">
+  :`<div class="card">
+      <button class="fuelsum" data-act="tankopen" aria-expanded="${tankOpen}">
+        <span class="fs-top"><b>${T.pct===null?'Tank':'~'+Math.round(T.pct)+'%'}</b>
+          <span>${T.gal===null?'no gauge reading yet':'about '+Math.round(T.gal)+' of '+T.size+' gal'}</span>
+          <span class="fs-chev ${tankOpen?'open':''}">${I.right}</span></span>
+        ${T.pct===null?'':`<span class="tankbar slim"><i style="width:${Math.min(100,Math.max(0,T.pct)).toFixed(1)}%;background:${T.pct<=reorderPct()?'var(--warn)':'var(--good)'}"></i></span>`}
+        <span class="fs-sub">${T.toReorder!==null?(T.toReorder<1?'At the '+reorderPct()+'% reorder point — time to call':'About '+Math.round(T.toReorder)+' days to '+reorderPct()+'%')
+          :T.gal===null?'Log the gauge to see the level':'Log the gauge again to see how fast you\'re using it'}</span>
+      </button>
+      ${tankOpen?`<div class="inner" style="padding-top:0">
+        ${T.pct===null?'':`<div class="tankbar" aria-hidden="true"><i style="width:${Math.min(100,Math.max(0,T.pct)).toFixed(1)}%;background:${T.pct<=reorderPct()?'var(--warn)':'var(--good)'}"></i>
+          <b style="left:${reorderPct()}%"></b><b style="left:${tankFull()}%"></b></div>
+          <div class="tanklabels"><span style="left:${reorderPct()}%">${reorderPct()}% reorder</span><span style="left:${tankFull()}%">${tankFull()}% full</span></div>`}
+        <div class="tankfacts">
+          ${T.lastAt?`<div>${T.lastWhen==='delivery'?'Estimated from the delivery':'From the gauge'} on ${esc(fmtDate(T.lastAt))}</div>`:''}
+          ${T.perDay?`<div>Using about <b>${T.perDay.toFixed(1)} gal a day</b></div>`:''}
+          ${T.used>0?`<div>Used so far: <b>${Math.round(T.used)} gal</b>${T.usedCost?' (≈ '+money(T.usedCost)+')':''}</div>`:''}
+          ${T.gal!==null&&T.toFull>0?`<div>Filling to ${tankFull()}%: about <b>${Math.round(T.toFull)} gal</b>${T.lastPrice?' ≈ <b>'+money(T.toFull*T.lastPrice)+'</b> at $'+T.lastPrice.toFixed(2)+'/gal':''}</div>`:''}
+        </div>
+        <button class="btn" style="margin-top:12px" data-act="fueltank">${I.pencil} ${T.size} gal tank — change size or reorder point</button>
+      </div>`:''}
+    </div>`}
+  ${pp?`<div class="card">
+      <button class="fuelsum" data-act="prepayopen" aria-expanded="${prepayOpen}">
+        <span class="fs-top"><b>${money(Math.max(0,L.bal))}</b><span>left on prepay</span>
+          <span class="fs-chev ${prepayOpen?'open':''}">${I.right}</span></span>
+        <span class="tankbar slim"><i style="width:${L.paid?Math.min(100,Math.max(0,L.bal)/L.paid*100).toFixed(1):0}%;background:var(--accent)"></i></span>
+        <span class="fs-sub">${[num(pp.price)&&L.bal>0?'≈ '+Math.round(L.bal/num(pp.price))+' gal':'',
+          pp.until?(ppDays>=0?'through '+fmtDate(pp.until):(L.bal>0?'contract ended — refund or use the rest':'contract ended')):'',
+          L.bal<0?money(-L.bal)+' past the prepay':''].filter(Boolean).map(esc).join(' · ')}</span>
+      </button>
+      ${prepayOpen?`<div class="inner" style="padding-top:0"><div class="tankfacts">
         ${num(pp.price)&&L.bal>0?`<div>Covers about <b>${Math.round(L.bal/num(pp.price))} gal</b> at the $${num(pp.price).toFixed(2)} max price — more if their day's price is lower</div>`:''}
         <div>Paid ${money(L.paid)}${L.drawn?' · used '+money(L.drawn)+' so far':''}${pp.vendor?' · '+esc(pp.vendor):''}</div>
         ${pp.until?(ppDays>=0?`<div>Good through <b>${esc(fmtDate(pp.until))}</b> (${esc(countdown(parseDate(pp.until)))})</div>`
           :L.bal>0?`<div><b>Contract ended ${esc(fmtDate(pp.until))}.</b> The ${money(L.bal)} left can be refunded or used at the day's price — call to ask.</div>`
           :`<div>Contract ended ${esc(fmtDate(pp.until))}.</div>`):''}
-        ${L.bal<0?`<div><b>Prepay used up</b> — ${money(-L.bal)} went past it.</div>`:''}
-      </div></div></div>`:''}
+      </div>
+      <button class="btn" style="margin-top:12px" data-act="prepay" data-id="${pp.id}">${I.pencil} Edit this prepay</button></div>`:''}
+    </div>`:''}
   <div class="card"><div class="inner" style="padding-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <span class="bignum">${f.gal?'$'+f.avg.toFixed(2):'—'}<small>${f.gal?'a gallon in '+y:'nothing logged in '+y}</small></span>
@@ -2707,7 +2778,8 @@ function fuelHTML(y){
     ${editing?`<button class="icb" data-act="delfuel" data-id="${d.id}" aria-label="Remove">${I.trash}</button>`:''}
   </div>`).join('')}
   ${history.length?'':`<p class="hint" style="margin:8px 0">Nothing logged in ${y}.</p>`}
-  <div class="btns h">${T?'':`<button class="btn dash" data-act="newfuel">${I.plus} Add a delivery</button>`}
+  <div class="btns h">${T?`<button class="btn" data-act="newreading"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18a8 8 0 1 1 16 0"/><line x1="12" y1="18" x2="16" y2="11"/></svg> Log the gauge</button>
+    <button class="btn solid" data-act="newfuel">${I.plus} Add a delivery</button>`:`<button class="btn dash" data-act="newfuel">${I.plus} Add a delivery</button>`}
     <button class="btn dash" data-act="newprepay">${I.coin} Add a prepay</button>
     ${(S.fuel||[]).length?`<button class="btn" data-act="csv" data-v="fuel">${I.grid} Copy for a spreadsheet</button>`:''}</div>
   </section>`;
@@ -3262,6 +3334,29 @@ function modalHTML(){
   }
   if(modal.kind==='line'){
     const l=(S.budget||[]).find(x=>x.id===modal.id); if(!l) return '';
+    const y=S.activeYear, now=new Date(), cur=y===now.getFullYear(), items=catItems(l);
+    const ty=sumIn(items,y), yi=items.filter(it=>yearOf(it.date)===y).sort((p,q)=>(q.date||'').localeCompare(p.date||''));
+    // average from the first month that has anything, so a house you moved into in the fall isn't divided by twelve
+    const mt=monthTotals(items,y), first=mt.findIndex(v=>v>0), monthsIn=first<0?1:((cur?now.getMonth():11)-first+1)||1, cmp=vsLastYear(items,y,ty);
+    const src={buy:'purchase',fuel:'fuel',record:'service record'};
+    return sheet(l.name,`
+      <span class="bignum">${money(ty)}<small>${cur?'so far in '+y:'in '+y}</small></span>
+      ${cmp?`<p class="trend" style="margin:0">${esc(cmp)}</p>`:''}
+      ${ty?`<p class="hint" style="margin:0">About ${money(ty/monthsIn)} a month${monthsIn<(cur?now.getMonth()+1:12)?' since '+['January','February','March','April','May','June','July','August','September','October','November','December'][first]:''}${yi.filter(it=>it.kind==='bill').length>1?' · about '+money(yi.filter(it=>it.kind==='bill').reduce((s2,it)=>s2+it.amt,0)/yi.filter(it=>it.kind==='bill').length)+' a bill':''}.</p>`:''}
+      ${monthChart(monthTotals(items,y),cur?now.getMonth():-1)}
+      <button class="btn solid" data-act="newspend" data-id="${l.id}">${I.plus} Add a bill</button>
+      ${yi.length?`<div>${yi.map(it=>it.kind==='bill'
+        ?`<button class="row billrow" data-act="spendedit" data-id="${it.ref.id}" data-line="${l.id}">
+            <div class="body"><div class="t">${money(it.amt)}</div><div class="m">${esc([fmtDate(it.date),it.ref.note].filter(Boolean).join(' · '))}</div></div>
+            <span class="achev">${I.right}</span></button>`
+        :`<div class="row billrow"><div class="body"><div class="t">${money(it.amt)}</div>
+            <div class="m">${esc([fmtDate(it.date),src[it.kind],it.kind==='buy'?it.ref.title:it.kind==='record'?(it.ref.subject||it.ref.what):it.ref.vendor].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`
+        :`<p class="hint" style="margin:0">Nothing in ${esc(l.name)} for ${y} yet.</p>`}
+      <button class="btn" data-act="lineedit" data-id="${l.id}">${I.pencil} Rename this category</button>
+      <button class="btn danger big" data-act="dellinesheet" data-id="${l.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this category'}</button>`);
+  }
+  if(modal.kind==='lineOLD'){
+    const l=(S.budget||[]).find(x=>x.id===modal.id); if(!l) return '';
     const y=S.activeYear, es=(l.entries||[]).filter(e=>yearOf(e.date)===y).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     const bs=(S.buy||[]).filter(b=>b.lineId===l.id&&b.bought&&yearOf(b.bought)===y);
     return sheet(l.name,`
@@ -3275,20 +3370,21 @@ function modalHTML(){
   }
   if(modal.kind==='lineedit'){
     const d=modal.draft;
-    return sheet(modal.isNew?'New budget line':'Edit budget line',`
-      <input data-m="name" value="${esc(d.name)}" placeholder="What is it for">
-      <label class="lbl">Planned per year<input data-m="planned" value="${esc(d.planned)}" inputmode="decimal" placeholder="0"></label>
+    return sheet(modal.isNew?'New category':'Rename category',`
+      <input data-m="name" value="${esc(d.name)}" placeholder="Trash, Electricity, Pest control…">
       <button class="btn solid" data-act="done">Done</button>`,true);
   }
   if(modal.kind==='spend'){
     const d=modal.draft;
-    return sheet('Add spending',`
+    return sheet(modal.isNew?'Add a bill or expense':'Edit bill',`
+      <label class="lbl">Category<select data-m="lineId">${(S.budget||[]).map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
       <div style="display:flex;gap:8px">
-        <label class="lbl" style="flex:1">Amount<input data-m="amount" value="${esc(d.amount)}" inputmode="decimal" placeholder="0"></label>
+        <label class="lbl" style="flex:1">Amount<input data-m="amount" value="${esc(d.amount)}" inputmode="decimal" placeholder="0.00" class="specv-in" style="font-size:20px"></label>
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
       </div>
-      <input data-m="note" value="${esc(d.note)}" placeholder="What was it">
-      <button class="btn solid" data-act="done">Done</button>`,true);
+      <input data-m="note" value="${esc(d.note)}" placeholder="What it was — e.g. October bill, quarterly spray">
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delspendsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this bill'}</button>`}`,true);
   }
   if(modal.kind==='buyedit'){
     const d=modal.draft;
@@ -3607,10 +3703,12 @@ function commitDraft(){
   }else if(modal.kind==='spend'){
     if(!(num(d.amount)>0)) return;
     const l=S.budget.find(x=>x.id===d.lineId); if(!l) return;
+    (S.budget||[]).forEach(o=>{ if(o!==l&&o.entries){ const j=o.entries.findIndex(e=>e.id===d.id); if(j>=0) o.entries.splice(j,1); } });
     l.entries=l.entries||[];
     const rec={id:d.id,date:d.date,amount:num(d.amount),note:d.note||''};
     const i=l.entries.findIndex(e=>e.id===d.id);
     if(i>=0) l.entries[i]=rec; else l.entries.push(rec);
+    LS('hq:lastcat',l.id);
   }else if(modal.kind==='buyedit'){
     if(!(d.title||'').trim()) return;
     const rec={id:d.id,title:d.title,est:num(d.est),note:d.note||'',url:d.url||'',lineId:d.lineId||'',bought:d.bought||null,paid:num(d.paid)};
@@ -4097,6 +4195,8 @@ document.addEventListener('click',async e=>{
   if(a==='newreading'){ modalAt=Date.now(); modal={kind:'fuelread',isNew:true,draft:{id:uid(),date:isoOf(new Date()),pct:'',note:''}}; render(); return; }
   if(a==='fuelread'){ const d=(S.fuel||[]).find(x=>x.id===id); if(!d) return;
     modalAt=Date.now(); modal={kind:'fuelread',draft:{...d,pct:String(d.pct)}}; render(); return; }
+  if(a==='tankopen'){ tankOpen=!tankOpen; render(); return; }
+  if(a==='prepayopen'){ prepayOpen=!prepayOpen; render(); return; }
   if(a==='newprepay'){ const line=(S.budget||[]).find(l=>/fuel|propane|oil|heat/i.test(l.name||''));
     const y=new Date().getFullYear();
     modalAt=Date.now(); modal={kind:'prepay',isNew:true,draft:{id:uid(),date:isoOf(new Date()),amount:'',price:'',until:(y+1)+'-04-30',vendor:'',lineId:line?line.id:'',note:''}}; render(); return; }
@@ -4200,7 +4300,28 @@ document.addEventListener('click',async e=>{
     moved.forEach(x=>x.lineId='');
     deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); }); return; }
   if(a==='newspend'){ const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
-    modalAt=Date.now(); modal={kind:'spend',back,draft:{id:uid(),lineId:id,amount:'',date:new Date().toISOString().slice(0,10),note:''}}; render(); return; }
+    if(!(S.budget||[]).length) S.budget.push({id:uid(),name:'Other',planned:0,entries:[]});
+    const last=LS('hq:lastcat'), lineId=id||((S.budget||[]).some(l=>l.id===last)?last:S.budget[0].id);
+    modalAt=Date.now(); modal={kind:'spend',isNew:true,back,draft:{id:uid(),lineId,amount:'',date:isoOf(new Date()),note:''}}; render(); return; }
+  if(a==='spendedit'){ const l=S.budget.find(x=>x.id===btn.dataset.line), e=l&&(l.entries||[]).find(x=>x.id===id); if(!e) return;
+    const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
+    modalAt=Date.now(); modal={kind:'spend',back,draft:{...e,lineId:l.id,amount:String(e.amount)}}; render(); return; }
+  if(a==='delspendsheet'){
+    if(modal&&modal.kind==='spend'&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const l=(S.budget||[]).find(o=>(o.entries||[]).some(e=>e.id===id)); if(!l) return;
+    const back=modal&&modal.back; modal=back||null;   // back to the category, without re-saving the bill
+    const i=l.entries.findIndex(e=>e.id===id), [e]=l.entries.splice(i,1);
+    deleted(money(num(e.amount))+' from '+l.name,()=>l.entries.splice(i,0,e)); return; }
+  if(a==='dellinesheet'){
+    if(modal&&modal.kind==='line'&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=S.budget.findIndex(x=>x.id===id); if(i<0) return;
+    modal=null;
+    const [l]=S.budget.splice(i,1);
+    // its fuel, purchases and records drop to "no category" so their spending still counts
+    const moved=[...(S.logs||[]),...(S.fuel||[]),...(S.buy||[])].filter(x=>x.lineId===l.id);
+    moved.forEach(x=>x.lineId='');
+    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); }); return; }
+  if(a==='quickcat'){ S.budget.push({id:uid(),name:v,planned:0,entries:[]}); render(); save(); return; }
   if(a==='delspend'){ const l=S.budget.find(x=>x.id===btn.dataset.line); if(!l) return;
     const i=(l.entries||[]).findIndex(e=>e.id===id); if(i<0) return;
     const [e]=l.entries.splice(i,1); deleted(money(num(e.amount))+' from '+l.name,()=>l.entries.splice(i,0,e)); return; }
