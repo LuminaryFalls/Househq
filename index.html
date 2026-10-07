@@ -595,7 +595,7 @@ const SYNC_KEY='hq:synced', PEND_KEY='hq:pendingphotos', PENDF_KEY='hq:pendingfi
 let prejoin=null;   // what was on this phone before it joined a shared house
 const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','logs','photos','contacts','specs','budget','buy','files','keyDates','fuel'];
 const CHECK_MAPS=['yearlyDone','equipDone','vehicleDone'];
-const META_FIELDS=['propertyName','closedPhases','lastBackup','createdAt'];
+const META_FIELDS=['propertyName','closedPhases','lastBackup','createdAt','fuelTank'];
 const clone=o=>JSON.parse(JSON.stringify(o));
 const PHOTO_MAX=1000000;   // Firestore documents top out at 1 MB
 let pendingRender=false;
@@ -1334,7 +1334,8 @@ function recentChanges(n){
     if(du.doneTs) push(du.doneTs,du.doneBy,'marked '+(du.title||'a date')+' done'+(o.name?' for '+o.name:'')); });
   (S.logs||[]).forEach(l=>push(l.at||l.date,l.who,'recorded '+(l.subject||'a service')));
   (S.photos||[]).forEach(p=>push(p.uploadedAt||p.addedAt,p.by,'added a photo'+(p.caption?' of '+p.caption:'')));
-  (S.fuel||[]).forEach(f=>push(f.at,f.by,'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
+  (S.fuel||[]).forEach(f=>push(f.at,f.by,isPrepay(f)?'prepaid '+money(num(f.amount))+' for fuel'
+    :isReading(f)?'logged the tank gauge at '+num(f.pct)+'%':'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
   (S.keyDates||[]).forEach(k=>push(k.at,k.by,'set the date for '+k.title));
   return out.sort((a,b)=>b.at-a.at).slice(0,n||10);
 }
@@ -1851,6 +1852,16 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .sizerow .szn{font-size:13px;color:${t.ink70};overflow-wrap:anywhere}
 .sizerow .achev{color:${t.ink70};display:grid}
 .sizerow:active{opacity:.7}
+.tankbar{position:relative;height:14px;border-radius:99px;background:${t.ink}1A;margin:12px 0 4px;overflow:visible}
+.tankbar i{display:block;height:100%;border-radius:99px;transition:width .3s}
+.tankbar b{position:absolute;top:-3px;bottom:-3px;width:2px;background:${t.ink}55;border-radius:2px}
+.tanklabels{position:relative;height:16px;font-size:11px;color:${t.ink70}}
+.tanklabels span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.tanklabels span:last-child{transform:translateX(-80%)}
+.tankfacts{display:grid;gap:6px;margin-top:8px;font-size:14px;color:${t.ink}}
+.tankfacts b{font-weight:700}
+.chk{display:flex;align-items:center;gap:10px;font-size:15px;padding:4px 0}
+.chk input{width:22px;height:22px;min-height:0;accent-color:${t.accent}}
 .specv-in{font-size:20px;font-weight:700;letter-spacing:.02em;overflow-wrap:anywhere}
 .specphoto-big{display:block;width:100%;padding:0;border-radius:14px;overflow:hidden;border:1px solid ${t.ink}24;background:${t.ground};aspect-ratio:4/3}
 .specphoto-big img{width:100%;height:100%;object-fit:cover;display:block}
@@ -2233,7 +2244,8 @@ function searchAll(ql){
   (S.inventory||[]).forEach(x=>{ if(has(x.title,x.room,x.serial,x.note))
     add('Inventory',x.title||'Unnamed item',[x.room,num(x.value)?money(num(x.value)):''],'inv',x.id); });
   (S.fuel||[]).forEach(f=>{ if(has(f.vendor,f.note,f.date))
-    add('Fuel',fmtDate(f.date),[f.gallons?f.gallons+' gal':'',f.vendor,f.note],'fuel',f.id); });
+    add('Fuel',fmtDate(f.date),[isPrepay(f)?'prepay '+money(num(f.amount)):isReading(f)?'gauge '+num(f.pct)+'%':f.gallons?f.gallons+' gal':'',f.vendor,f.note],
+      isPrepay(f)?'prepay':isReading(f)?'fuelread':'fuel',f.id); });
   (S.budget||[]).forEach(l=>{ if(has(l.name))
     add('Budget',l.name,[money(lineSpent(l,S.activeYear))+' in '+S.activeYear],'line',l.id); });
   (S.buy||[]).forEach(b=>{ if(has(b.title,b.note))
@@ -2479,18 +2491,35 @@ function fmtDate(s){
 
 /* ---------- Budget ---------- */
 const num=v=>{ const n=parseFloat(String(v??'').replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; };
-const money=n=>'$'+(Math.round(n*100)/100).toLocaleString(undefined,{maximumFractionDigits:2});
+const money=n=>{ const v=Math.round(n*100)/100;   // $800, $175.10 — never $175.1
+  return '$'+v.toLocaleString(undefined,{minimumFractionDigits:v%1?2:0,maximumFractionDigits:2}); };
 const yearOf=d=>+String(d||'').slice(0,4);
 function lineSpent(l,y){
   const e=(l.entries||[]).filter(x=>yearOf(x.date)===y).reduce((s,x)=>s+num(x.amount),0);
   const b=(S.buy||[]).filter(x=>x.lineId===l.id&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
-  const f=(S.fuel||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+fuelCost(x),0);
+  const L=prepayLedger(), f=(S.fuel||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+fuelSpend(x,L),0);
   const r=(S.logs||[]).filter(x=>x.lineId===l.id&&yearOf(x.date)===y).reduce((s,x)=>s+num(x.cost),0);
   return e+b+f+r;
 }
 const logSpent=y=>S.logs.filter(l=>!l.lineId&&yearOf(l.date)===y).reduce((s,l)=>s+num(l.cost),0);   // records on a line count there instead
-const fuelCost=f=>num(f.total)||num(f.gallons)*num(f.price);
-const unassignedFuel=y=>(S.fuel||[]).filter(x=>!x.lineId&&yearOf(x.date)===y).reduce((s,x)=>s+fuelCost(x),0);
+const fuelCost=f=>num(f.total)||num(f.gallons)*num(f.price);   // what the fuel was worth
+const isPrepay=f=>f&&f.kind==='prepay';
+/* Prepay: money paid up front, drawn down by deliveries marked "paid from prepay". Walks
+   everything in date order so a delivery only draws what was on account at the time. */
+function prepayLedger(){
+  const ev=(S.fuel||[]).filter(f=>isPrepay(f)||f.fromPrepay).slice()
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(isPrepay(b)?1:0)-(isPrepay(a)?1:0));
+  let bal=0, paid=0, drawn=0; const beyond={};
+  for(const e of ev){
+    if(isPrepay(e)){ bal+=num(e.amount); paid+=num(e.amount); continue; }
+    const c=fuelCost(e), use=Math.min(c,Math.max(0,bal)); bal-=use; drawn+=use; beyond[e.id]=+(c-use).toFixed(2);
+  }
+  return {bal:+bal.toFixed(2),paid,drawn,beyond};
+}
+/* Money actually spent: a prepay counts when it's paid; a delivery from prepay only counts for
+   whatever went past the prepay balance. */
+const fuelSpend=(f,L)=>isReading(f)?0:isPrepay(f)?num(f.amount):f.fromPrepay?((L||prepayLedger()).beyond[f.id]||0):fuelCost(f);
+const unassignedFuel=y=>{ const L=prepayLedger(); return (S.fuel||[]).filter(x=>!x.lineId&&yearOf(x.date)===y).reduce((s,x)=>s+fuelSpend(x,L),0); };
 const unassignedBuys=y=>(S.buy||[]).filter(x=>!x.lineId&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
 function budgetYears(){
   const set=new Set(yearsTouched());
@@ -2560,34 +2589,126 @@ function viewBudget(){
 }
 
 /* ---------- Fuel ---------- */
+/* ---------- Propane tank ----------
+   A tank is sold by the gallon but read by percent. Gauge readings are {kind:'reading',pct};
+   deliveries can carry the gauge before/after. Tanks are only ever filled to about 80%. */
+const isReading=f=>f&&f.kind==='reading';
+const tankSize=()=>num(S.fuelTank&&S.fuelTank.size);
+const tankFull=()=>num(S.fuelTank&&S.fuelTank.full)||80;
+const reorderPct=()=>num(S.fuelTank&&S.fuelTank.reorder)||25;   // when to call for fuel
+function tankStats(){
+  const size=tankSize(); if(!size) return null;
+  const ev=(S.fuel||[]).filter(f=>f.date).slice()
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(isReading(a)?1:0)-(isReading(b)?1:0));   // same day: delivery, then the reading
+  let gal=null, used=0, firstAt=null, lastAt=null, lastWhen='';
+  const readTo=(g,date)=>{ if(gal!==null&&g<gal) used+=gal-g; gal=g; if(!firstAt) firstAt=date; lastAt=date; };
+  for(const e of ev){
+    if(isReading(e)){ if(num(e.pct)>0||e.pct==='0') { readTo(num(e.pct)/100*size,e.date); lastWhen='reading'; } continue; }
+    if(num(e.pctBefore)>0) readTo(num(e.pctBefore)/100*size,e.date);
+    if(num(e.pctAfter)>0){ gal=num(e.pctAfter)/100*size; if(!firstAt) firstAt=e.date; lastAt=e.date; lastWhen='delivery'; }
+    else if(gal!==null&&num(e.gallons)>0){ gal=Math.min(size,gal+num(e.gallons)); lastWhen='delivery'; }
+  }
+  const dels=(S.fuel||[]).filter(f=>!isReading(f)&&num(f.gallons)>0);
+  const allGal=dels.reduce((a,f)=>a+num(f.gallons),0), allCost=dels.reduce((a,f)=>a+fuelCost(f),0);
+  const avgPrice=allGal?allCost/allGal:0;
+  const latest=dels.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+  const lastPrice=latest&&num(latest.price)?num(latest.price):avgPrice;
+  const days=firstAt&&lastAt?Math.max(0,(parseDate(lastAt)-parseDate(firstAt))/DAY):0;
+  const perDay=days>=3&&used>0?used/days:0;
+  const pct=gal===null?null:gal/size*100;
+  const toFull=gal===null?0:Math.max(0,tankFull()/100*size-gal);
+  const toReorder=gal===null||!perDay?null:Math.max(0,(gal-reorderPct()/100*size)/perDay);
+  return {size,gal,pct,used,usedCost:used*avgPrice,perDay,toFull,lastPrice,avgPrice,lastAt,lastWhen,toReorder};
+}
 function fuelYear(y){
-  const rows=(S.fuel||[]).filter(f=>yearOf(f.date)===y).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const rows=(S.fuel||[]).filter(f=>!isReading(f)&&!isPrepay(f)&&yearOf(f.date)===y).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const gal=rows.reduce((s,f)=>s+num(f.gallons),0);
   const cost=rows.reduce((s,f)=>s+fuelCost(f),0);
-  return {rows,gal,cost,avg:gal?cost/gal:0};
+  const L=prepayLedger(), spend=(S.fuel||[]).filter(f=>yearOf(f.date)===y).reduce((a,f)=>a+fuelSpend(f,L),0);
+  return {rows,gal,cost,avg:gal?cost/gal:0,spend};
 }
 function fuelHTML(y){
-  const f=fuelYear(y), p=fuelYear(y-1);
-  return `<section class="grp zone"><h3>Fuel<span>${f.gal?money(f.cost)+' in '+y:'nothing logged in '+y}</span></h3>
-  <p class="hint" style="margin-top:0">What you paid, and when. Two winters of this tells you whether pre-buying actually beat December.</p>
+  const f=fuelYear(y), p=fuelYear(y-1), T=tankStats();
+  const pre=f.rows.filter(d=>d.preseason||d.fromPrepay), inS=f.rows.filter(d=>!d.preseason&&!d.fromPrepay);
+  const L=prepayLedger(), prepays=(S.fuel||[]).filter(isPrepay).sort((a,b)=>(b.date||'').localeCompare(a.date||'')), pp=prepays[0];
+  const ppDays=pp&&pp.until?daysAway(parseDate(pp.until)):null;
+  const avgOf=r=>{ const g=r.reduce((a,d)=>a+num(d.gallons),0); return g?r.reduce((a,d)=>a+fuelCost(d),0)/g:0; };
+  const readings=(S.fuel||[]).filter(x=>isReading(x)&&yearOf(x.date)===y).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const history=[...f.rows,...readings,...prepays.filter(x=>yearOf(x.date)===y)].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(isReading(b)?1:0)-(isReading(a)?1:0));
+  return `<section class="grp zone"><h3>Fuel<span>${f.spend?money(f.spend)+' paid in '+y:'nothing logged in '+y}</span></h3>
+  ${!T?`<div class="card"><div class="inner" style="padding-top:14px">
+      <b style="font-size:16px">Set up your propane tank</b>
+      <p class="hint" style="margin:6px 0 10px">Your tank size and where the gauge was when you moved in — the line from your closing papers, like "320g × 65% × $1.31/g".</p>
+      <button class="btn solid" data-act="fuelstart">${I.drop} Set up the tank</button></div></div>`
+  :`<div class="card"><div class="inner" style="padding-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span class="bignum">${T.pct===null?'—':'~'+Math.round(T.pct)+'%'}<small>${T.gal===null?'no gauge reading yet':'about '+Math.round(T.gal)+' of '+T.size+' gal'}</small></span>
+        <button class="linkbtn" data-act="fueltank">${T.size} gal tank</button>
+      </div>
+      ${T.pct===null?'':`<div class="tankbar" aria-hidden="true"><i style="width:${Math.min(100,Math.max(0,T.pct)).toFixed(1)}%;background:${T.pct<=reorderPct()?'var(--warn)':'var(--good)'}"></i>
+        <b style="left:${reorderPct()}%"></b><b style="left:${tankFull()}%"></b></div>
+        <div class="tanklabels"><span style="left:${reorderPct()}%">${reorderPct()}% reorder</span><span style="left:${tankFull()}%">${tankFull()}% full</span></div>`}
+      <div class="tankfacts">
+        ${T.lastAt?`<div>${T.lastWhen==='delivery'?'Estimated from the delivery':'From the gauge'} on ${esc(fmtDate(T.lastAt))}</div>`:''}
+        ${T.perDay?`<div>Using about <b>${T.perDay.toFixed(1)} gal a day</b>${T.toReorder!==null?(T.toReorder<1?' — <b>at the reorder point now</b>':' — about <b>'+Math.round(T.toReorder)+' days</b> to '+reorderPct()+'%'):''}</div>`
+          :T.gal!==null?'<div>Log the gauge again in a week or two and it can tell you how fast you\'re using it.</div>':''}
+        ${T.used>0?`<div>Used so far: <b>${Math.round(T.used)} gal</b>${T.usedCost?' (≈ '+money(T.usedCost)+')':''}</div>`:''}
+        ${T.gal!==null&&T.toFull>0?`<div>Filling to ${tankFull()}%: about <b>${Math.round(T.toFull)} gal</b>${T.lastPrice?' ≈ <b>'+money(T.toFull*T.lastPrice)+'</b> at $'+T.lastPrice.toFixed(2)+'/gal':''}</div>`:''}
+      </div>
+      <div class="btns h" style="margin-top:12px">
+        <button class="btn" data-act="newreading">${'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18a8 8 0 1 1 16 0"/><line x1="12" y1="18" x2="16" y2="11"/></svg>'} Log the gauge</button>
+        <button class="btn solid" data-act="newfuel">${I.plus} Add a delivery</button>
+      </div></div></div>`}
+  ${pp?`<div class="card"><div class="inner" style="padding-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span class="bignum">${money(Math.max(0,L.bal))}<small>left on prepay</small></span>
+        <button class="linkbtn" data-act="prepay" data-id="${pp.id}">${num(pp.price)?'$'+num(pp.price).toFixed(2)+'/gal':'Prepay'}</button>
+      </div>
+      <div class="tankbar" aria-hidden="true"><i style="width:${L.paid?Math.min(100,Math.max(0,L.bal)/L.paid*100).toFixed(1):0}%;background:var(--accent)"></i></div>
+      <div class="tankfacts">
+        ${num(pp.price)&&L.bal>0?`<div>Covers about <b>${Math.round(L.bal/num(pp.price))} gal</b> at the $${num(pp.price).toFixed(2)} max price — more if their day's price is lower</div>`:''}
+        <div>Paid ${money(L.paid)}${L.drawn?' · used '+money(L.drawn)+' so far':''}${pp.vendor?' · '+esc(pp.vendor):''}</div>
+        ${pp.until?(ppDays>=0?`<div>Good through <b>${esc(fmtDate(pp.until))}</b> (${esc(countdown(parseDate(pp.until)))})</div>`
+          :L.bal>0?`<div><b>Contract ended ${esc(fmtDate(pp.until))}.</b> The ${money(L.bal)} left can be refunded or used at the day's price — call to ask.</div>`
+          :`<div>Contract ended ${esc(fmtDate(pp.until))}.</div>`):''}
+        ${L.bal<0?`<div><b>Prepay used up</b> — ${money(-L.bal)} went past it.</div>`:''}
+      </div></div></div>`:''}
   <div class="card"><div class="inner" style="padding-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <span class="bignum">${f.gal?'$'+f.avg.toFixed(2):'—'}<small>${f.gal?'a gallon in '+y:'nothing logged in '+y}</small></span>
       <span class="hint" style="margin:0">${f.gal?Math.round(f.gal)+' gal · '+money(f.cost):''}</span>
     </div>
+    ${pre.length&&inS.length?`<p class="trend" style="margin:8px 0 0">Pre-season $${avgOf(pre).toFixed(2)}/gal vs in-season $${avgOf(inS).toFixed(2)}/gal${
+      avgOf(inS)>avgOf(pre)?' — pre-buying saved about '+money((avgOf(inS)-avgOf(pre))*pre.reduce((a,d)=>a+num(d.gallons),0)):''}.</p>`:''}
     ${p.gal&&f.gal?`<p class="trend" style="margin:8px 0 0">${y-1} came in at $${p.avg.toFixed(2)} a gallon — ${
       f.avg===p.avg?'the same':(f.avg>p.avg?'up ':'down ')+'$'+Math.abs(f.avg-p.avg).toFixed(2)}.</p>`:''}
   </div></div>
-  ${f.rows.map(d=>`<div class="row">
+  ${history.map(d=>isPrepay(d)?`<div class="row">
+    <button class="fico" data-act="prepay" data-id="${d.id}" aria-label="Edit">${I.coin}</button>
+    <button class="body" data-act="prepay" data-id="${d.id}">
+      <div class="t">${esc(fmtDate(d.date))} · prepaid ${money(num(d.amount))}</div>
+      <div class="m">${[num(d.price)?'$'+num(d.price).toFixed(2)+'/gal max':'',d.until?'good through '+fmtDate(d.until):'',d.vendor,d.note].filter(Boolean).map(esc).join(' · ')}</div>
+    </button>
+    ${editing?`<button class="icb" data-act="delfuel" data-id="${d.id}" aria-label="Remove">${I.trash}</button>`:''}
+  </div>`:isReading(d)?`<div class="row">
+    <button class="fico" data-act="fuelread" data-id="${d.id}" aria-label="Edit"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 18a8 8 0 1 1 16 0"/><line x1="12" y1="18" x2="16" y2="11"/></svg></button>
+    <button class="body" data-act="fuelread" data-id="${d.id}">
+      <div class="t">${esc(fmtDate(d.date))} · gauge at ${esc(String(num(d.pct)))}%</div>
+      <div class="m">${[tankSize()?'about '+Math.round(num(d.pct)/100*tankSize())+' gal':'',d.note].filter(Boolean).map(esc).join(' · ')}</div>
+    </button>
+    ${editing?`<button class="icb" data-act="delfuel" data-id="${d.id}" aria-label="Remove">${I.trash}</button>`:''}
+  </div>`:`<div class="row">
     <button class="fico" data-act="fuel" data-id="${d.id}" aria-label="Edit">${I.drop}</button>
     <button class="body" data-act="fuel" data-id="${d.id}">
-      <div class="t">${esc(fmtDate(d.date))}${d.gallons?' · '+esc(String(d.gallons))+' gal':''}</div>
-      <div class="m">${[fuelCost(d)?money(fuelCost(d)):'',num(d.price)?'$'+num(d.price).toFixed(2)+'/gal':'',d.vendor,d.note].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="t">${esc(fmtDate(d.date))}${d.gallons?' · '+esc(String(Math.round(num(d.gallons)*10)/10))+' gal':''}${d.fromPrepay?' <span class="tag link">from prepay</span>':d.preseason?' <span class="tag link">pre-season</span>':''}</div>
+      <div class="m">${[fuelCost(d)?money(fuelCost(d)):'',num(d.price)?'$'+num(d.price).toFixed(2)+'/gal':'',
+        num(d.pctBefore)||num(d.pctAfter)?(num(d.pctBefore)?num(d.pctBefore)+'%':'?')+' → '+(num(d.pctAfter)?num(d.pctAfter)+'%':'?'):'',d.vendor,d.note].filter(Boolean).map(esc).join(' · ')}</div>
     </button>
     ${editing?`<button class="icb" data-act="delfuel" data-id="${d.id}" aria-label="Remove">${I.trash}</button>`:''}
   </div>`).join('')}
-  ${f.rows.length?'':`<p class="hint" style="margin:8px 0">No deliveries logged in ${y}.</p>`}
-  <div class="btns h"><button class="btn dash" data-act="newfuel">${I.plus} Add a delivery</button>
+  ${history.length?'':`<p class="hint" style="margin:8px 0">Nothing logged in ${y}.</p>`}
+  <div class="btns h">${T?'':`<button class="btn dash" data-act="newfuel">${I.plus} Add a delivery</button>`}
+    <button class="btn dash" data-act="newprepay">${I.coin} Add a prepay</button>
     ${(S.fuel||[]).length?`<button class="btn" data-act="csv" data-v="fuel">${I.grid} Copy for a spreadsheet</button>`:''}</div>
   </section>`;
 }
@@ -3257,10 +3378,69 @@ function modalHTML(){
         <label class="lbl" style="flex:1">Total paid<input data-m="total" value="${esc(d.total)}" inputmode="decimal" placeholder="${cost?cost.toFixed(2):'0.00'}"></label>
       </div>
       ${cost?`<p class="hint" style="margin:0">${money(cost)}${num(d.gallons)?' — $'+(cost/num(d.gallons)).toFixed(2)+' a gallon':''}. Leave the total blank and it works itself out from the gallons and the price.</p>`:''}
+      ${(S.fuel||[]).some(isPrepay)?`<label class="chk"><input type="checkbox" data-m="fromPrepay" ${d.fromPrepay?'checked':''}> Paid from prepay</label>
+        ${d.fromPrepay?`<p class="hint" style="margin:0">Prepay left${modal.isNew&&!num(d.gallons)&&!num(d.total)?'':' after this'}: <b>${money(Math.max(0,prepayLedger().bal))}</b>. Enter the price on the ticket — it may be under the contract price.</p>`:''}`
+      :`<label class="chk"><input type="checkbox" data-m="preseason" ${d.preseason?'checked':''}> Pre-season price (pre-buy)</label>`}
+      ${tankSize()?`<div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Gauge before<input data-m="pctBefore" value="${esc(d.pctBefore||'')}" inputmode="decimal" placeholder="%"></label>
+        <label class="lbl" style="flex:1">Gauge after<input data-m="pctAfter" value="${esc(d.pctAfter||'')}" inputmode="decimal" placeholder="%"></label>
+      </div>
+      ${!num(d.gallons)&&num(d.pctAfter)>num(d.pctBefore)&&num(d.pctBefore)>0?`<p class="hint" style="margin:0">No gallons from the ticket? From the gauge that's about <b>${Math.round((num(d.pctAfter)-num(d.pctBefore))/100*tankSize())} gal</b>${num(d.price)?' ≈ '+money((num(d.pctAfter)-num(d.pctBefore))/100*tankSize()*num(d.price)):''}.</p>`:''}`:''}
       <input data-m="vendor" value="${esc(d.vendor)}" placeholder="Who delivered it">
       <label class="lbl">Budget line<select data-m="lineId"><option value="">None</option>${
         (S.budget||[]).map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
-      <input data-m="note" value="${esc(d.note)}" placeholder="Pre-buy, tank level, contract price">
+      <input data-m="note" value="${esc(d.note)}" placeholder="Contract, ticket number, anything else">
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delfuelsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this delivery'}</button>`}`,true);
+  }
+  if(modal.kind==='prepay'){
+    const d=modal.draft;
+    return sheet(modal.isNew?'Prepay':'Edit prepay',`
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Date paid<input type="date" data-m="date" value="${esc(d.date)}"></label>
+        <label class="lbl" style="flex:1">Amount paid<input data-m="amount" value="${esc(d.amount)}" inputmode="decimal" placeholder="800.00"></label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Contract price a gallon<input data-m="price" value="${esc(d.price)}" inputmode="decimal" placeholder="1.69"></label>
+        <label class="lbl" style="flex:1">Good through<input type="date" data-m="until" value="${esc(d.until)}"></label>
+      </div>
+      ${num(d.amount)&&num(d.price)?`<p class="hint" style="margin:0">${money(num(d.amount))} at $${num(d.price).toFixed(2)} covers about <b>${Math.round(num(d.amount)/num(d.price))} gal</b>.</p>`:''}
+      <input data-m="vendor" value="${esc(d.vendor)}" placeholder="Who you paid">
+      <label class="lbl">Budget line<select data-m="lineId"><option value="">None</option>${
+        (S.budget||[]).map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name)}</option>`).join('')}</select></label>
+      <input data-m="note" value="${esc(d.note||'')}" placeholder="Receipt or account number, anything else">
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delfuelsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this prepay'}</button>`}`,true);
+  }
+  if(modal.kind==='fuelread'){
+    const d=modal.draft, size=tankSize(), g=num(d.pct)/100*size;
+    return sheet(modal.isNew?'Gauge reading':'Edit reading',`
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
+        <label class="lbl" style="flex:1">Gauge %<input data-m="pct" value="${esc(d.pct)}" inputmode="decimal" placeholder="65" class="specv-in" style="font-size:20px"></label>
+      </div>
+      ${num(d.pct)>0&&size?`<p class="hint" style="margin:0">That's about <b>${Math.round(g)} gal</b> of your ${size} gal tank.</p>`:''}
+      <input data-m="note" value="${esc(d.note||'')}" placeholder="Anything worth noting">
+      <button class="btn solid" data-act="done">Done</button>
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delfuelsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this reading'}</button>`}`,true);
+  }
+  if(modal.kind==='fuelstart'||modal.kind==='fueltank'){
+    const d=modal.draft, size=num(d.size), start=modal.kind==='fuelstart';
+    const g=size*num(d.pct)/100, cost=g*num(d.price);
+    return sheet(start?'Set up the tank':'Your tank',`
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Tank size (gallons)<input data-m="size" value="${esc(d.size)}" inputmode="decimal" placeholder="320"></label>
+        <label class="lbl" style="flex:1">Filled to (%)<input data-m="full" value="${esc(d.full)}" inputmode="decimal" placeholder="80"></label>
+      </div>
+      <label class="lbl">Call for fuel at (%)<input data-m="reorder" value="${esc(d.reorder)}" inputmode="decimal" placeholder="25"></label>
+      ${start?`<p class="hint" style="margin:0">Where the gauge was when you took over, and the price you paid for what was in it.</p>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
+        <label class="lbl" style="flex:1">Gauge %<input data-m="pct" value="${esc(d.pct)}" inputmode="decimal" placeholder="65"></label>
+      </div>
+      <label class="lbl">Price a gallon<input data-m="price" value="${esc(d.price)}" inputmode="decimal" placeholder="1.31"></label>
+      ${size&&num(d.pct)?`<p class="hint" style="margin:0">${size} gal × ${num(d.pct)}% = <b>${Math.round(g*10)/10} gal</b>${num(d.price)?` × $${num(d.price).toFixed(2)} = <b>${money(cost)}</b>`:''}</p>`:''}`
+      :'<p class="hint" style="margin:0">Propane tanks are filled to about 80%, never 100% — that\'s what "full" means on a delivery.</p>'}
       <button class="btn solid" data-act="done">Done</button>`,true);
   }
   if(modal.kind==='snapshots'){
@@ -3452,10 +3632,36 @@ function commitDraft(){
     const url=fixURL(d.url);
     const rec={...d,url,name:(d.name||'').trim()||url.replace(/^https?:\/\//,'').split('/')[0]||'Untitled'};
     if(i>=0) S.files[i]=rec; else S.files.unshift(rec);
+  }else if(modal.kind==='prepay'){
+    if(!(num(d.amount)>0)) return;
+    const rec={id:d.id,kind:'prepay',date:d.date||'',amount:num(d.amount),price:num(d.price),until:d.until||'',
+      vendor:d.vendor||'',lineId:d.lineId||'',note:d.note||'',at:d.at||Date.now(),by:d.by||pref.who()};
+    const i=S.fuel.findIndex(x=>x.id===d.id);
+    if(i>=0) S.fuel[i]={...S.fuel[i],...rec}; else S.fuel.push(rec);
+  }else if(modal.kind==='fuelread'){
+    if(!(String(d.pct).trim()!==''&&num(d.pct)>=0&&num(d.pct)<=100)) return;
+    const rec={id:d.id,kind:'reading',date:d.date||'',pct:num(d.pct),note:d.note||'',at:d.at||Date.now(),by:d.by||pref.who()};
+    const i=S.fuel.findIndex(x=>x.id===d.id);
+    if(i>=0) S.fuel[i]={...S.fuel[i],...rec}; else S.fuel.push(rec);
+  }else if(modal.kind==='fueltank'||modal.kind==='fuelstart'){
+    if(!(num(d.size)>0)) return;
+    S.fuelTank={size:num(d.size),full:num(d.full)||80,reorder:num(d.reorder)||25};
+    if(modal.kind==='fuelstart'&&num(d.pct)>0){
+      // the starting level becomes a gauge reading, and the fuel you paid for at closing becomes the first purchase
+      const g=+(num(d.size)*num(d.pct)/100).toFixed(1);
+      const up=(rec)=>{ const i=S.fuel.findIndex(x=>x.id===rec.id); if(i>=0) S.fuel[i]={...S.fuel[i],...rec}; else S.fuel.push(rec); };
+      up({id:d.id+'r',kind:'reading',date:d.date||'',pct:num(d.pct),note:'Starting level',at:d.at||Date.now(),by:pref.who()});
+      if(num(d.price)>0) up({id:d.id+'d',date:d.date||'',gallons:g,price:num(d.price),total:+(g*num(d.price)).toFixed(2),
+        vendor:'With the house',lineId:d.lineId||'',note:'Fuel bought at closing',at:d.at||Date.now(),by:pref.who()});
+    }
   }else if(modal.kind==='fuel'){
-    if(!(num(d.gallons)>0||num(d.total)>0)) return;
-    const rec={id:d.id,date:d.date||'',gallons:num(d.gallons),price:num(d.price),
-      total:num(d.total)||+(num(d.gallons)*num(d.price)).toFixed(2),
+    // no gallons from the ticket? work them out from the gauge before and after
+    const gGauge=tankSize()&&num(d.pctAfter)>num(d.pctBefore)&&num(d.pctBefore)>0?+((num(d.pctAfter)-num(d.pctBefore))/100*tankSize()).toFixed(1):0;
+    const gal=num(d.gallons)||gGauge;
+    if(d.fromPrepay&&!num(d.price)&&!num(d.total)){ const pp=(S.fuel||[]).filter(isPrepay).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0]; if(pp&&num(pp.price)) d.price=String(pp.price); }
+    if(!(gal>0||num(d.total)>0)) return;
+    const rec={id:d.id,date:d.date||'',gallons:gal,price:num(d.price),
+      total:num(d.total)||+(gal*num(d.price)).toFixed(2),preseason:!!d.preseason,fromPrepay:!!d.fromPrepay,pctBefore:num(d.pctBefore)||'',pctAfter:num(d.pctAfter)||'',
       vendor:d.vendor||'',lineId:d.lineId||'',note:d.note||'',at:d.at||Date.now(),by:d.by||pref.who()};
     const i=S.fuel.findIndex(x=>x.id===d.id);
     if(i>=0) S.fuel[i]={...S.fuel[i],...rec}; else S.fuel.push(rec);
@@ -3506,9 +3712,10 @@ document.addEventListener('input',async e=>{
     const n=document.getElementById('q'); if(n){n.focus();n.setSelectionRange(p,p);} return; }
   if(el.dataset.m && modal){
     if(modal.draft){
-      modal.draft[el.dataset.m]=el.value;
+      modal.draft[el.dataset.m]=el.type==='checkbox'?el.checked:el.value;
       if(el.dataset.m==='season'){ if(!seasonMonths(el.value).includes(+modal.draft.month)) modal.draft.month=0; commitDraft(); render(); return; }
       commitDraft();
+      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)) render();   // live gallons and cost
     } else modal[el.dataset.m]=el.value;
     return; }
   if(!a) return;
@@ -3878,10 +4085,29 @@ document.addEventListener('click',async e=>{
 
   if(a==='newfuel'){ const line=(S.budget||[]).find(l=>/fuel|propane|oil|heat/i.test(l.name||''));
     modalAt=Date.now(); modal={kind:'fuel',isNew:true,
-      draft:{id:uid(),date:isoOf(new Date()),gallons:'',price:'',total:'',vendor:'',lineId:line?line.id:'',note:''}};
+      draft:{id:uid(),date:isoOf(new Date()),gallons:'',price:'',total:'',vendor:'',lineId:line?line.id:'',note:'',
+        fromPrepay:(()=>{ const pp=(S.fuel||[]).filter(isPrepay).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+          return !!(pp&&prepayLedger().bal>0&&(!pp.until||daysAway(parseDate(pp.until))>=0)); })()}};
     render(); return; }
   if(a==='fuel'){ const d=(S.fuel||[]).find(x=>x.id===id); if(!d) return;
     modalAt=Date.now(); modal={kind:'fuel',draft:{...d,gallons:d.gallons||'',price:d.price||'',total:d.total||''}}; render(); return; }
+  if(a==='fuelstart'){ const line=(S.budget||[]).find(l=>/fuel|propane|oil|heat/i.test(l.name||''));
+    modalAt=Date.now(); modal={kind:'fuelstart',isNew:true,draft:{id:uid(),size:'',full:'80',reorder:'25',date:isoOf(new Date()),pct:'',price:'',lineId:line?line.id:''}}; render(); return; }
+  if(a==='fueltank'){ modalAt=Date.now(); modal={kind:'fueltank',draft:{id:'tank',size:String(tankSize()||''),full:String(tankFull()),reorder:String(reorderPct())}}; render(); return; }
+  if(a==='newreading'){ modalAt=Date.now(); modal={kind:'fuelread',isNew:true,draft:{id:uid(),date:isoOf(new Date()),pct:'',note:''}}; render(); return; }
+  if(a==='fuelread'){ const d=(S.fuel||[]).find(x=>x.id===id); if(!d) return;
+    modalAt=Date.now(); modal={kind:'fuelread',draft:{...d,pct:String(d.pct)}}; render(); return; }
+  if(a==='newprepay'){ const line=(S.budget||[]).find(l=>/fuel|propane|oil|heat/i.test(l.name||''));
+    const y=new Date().getFullYear();
+    modalAt=Date.now(); modal={kind:'prepay',isNew:true,draft:{id:uid(),date:isoOf(new Date()),amount:'',price:'',until:(y+1)+'-04-30',vendor:'',lineId:line?line.id:'',note:''}}; render(); return; }
+  if(a==='prepay'){ const d=(S.fuel||[]).find(x=>x.id===id); if(!d) return;
+    modalAt=Date.now(); modal={kind:'prepay',draft:{...d,amount:String(d.amount),price:d.price?String(d.price):''}}; render(); return; }
+  if(a==='delfuelsheet'){
+    if(modal&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=S.fuel.findIndex(x=>x.id===id); if(i<0) return;
+    modal=null;   // drop the sheet without committing, or it writes the entry back
+    const [d]=S.fuel.splice(i,1);
+    deleted((isReading(d)?'the reading on ':isPrepay(d)?'the prepay on ':'the delivery on ')+fmtDate(d.date),()=>S.fuel.splice(i,0,d)); return; }
   if(a==='delfuel'){ const i=S.fuel.findIndex(x=>x.id===id); if(i<0) return;
     const [d]=S.fuel.splice(i,1);
     deleted('the delivery on '+fmtDate(d.date),()=>S.fuel.splice(i,0,d)); return; }
@@ -4219,7 +4445,7 @@ function buildHandoff(){
   const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
   const logs=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
-  const fuelRows=(S.fuel||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+  const fuelRows=(S.fuel||[]).filter(f=>!isReading(f)&&!isPrepay(f)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(f=>[fmtDate(f.date),(f.gallons||'')+' gal',fuelCost(f)?money(fuelCost(f)):'',f.vendor||'']);
   const seasonal=hoTable((S.yearly||[]).map(x=>[x.title,[x.season,x.month?MONTHS[x.month-1]:'',x.freq].filter(Boolean).join(' · ')]));
   const shots=(S.photos||[]).filter(p=>photoCache[p.id]).slice(0,30);
@@ -4272,9 +4498,11 @@ function tableFor(what){
     return [['Item','Room','Value','Bought','Serial / model','Photos','Note'],
       ...(S.inventory||[]).map(x=>[x.title,x.room,num(x.value)?num(x.value).toFixed(2):'',x.bought,x.serial,(x.photos||[]).length||'',x.note])];
   const rows=(S.fuel||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  return [['Date','Gallons','Price a gallon','Total','Vendor','Budget line','Note'],
-    ...rows.map(f=>[f.date,f.gallons,f.price?num(f.price).toFixed(2):'',fuelCost(f)?fuelCost(f).toFixed(2):'',f.vendor,
-      ((S.budget||[]).find(l=>l.id===f.lineId)||{}).name||'',f.note])];
+  return [['Date','Type','Gauge %','Gallons','Price a gallon','Total','Pre-season','Vendor','Budget line','Note'],
+    ...rows.map(f=>isPrepay(f)?[f.date,'Prepay','','',f.price?num(f.price).toFixed(2):'',num(f.amount).toFixed(2),'',f.vendor,((S.budget||[]).find(l=>l.id===f.lineId)||{}).name||'',[f.until?'good through '+f.until:'',f.note].filter(Boolean).join('; ')]
+      :isReading(f)?[f.date,'Gauge reading',f.pct,tankSize()?(num(f.pct)/100*tankSize()).toFixed(1):'','','','','','',f.note]
+      :[f.date,'Delivery',[f.pctBefore,f.pctAfter].filter(Boolean).join(' → '),f.gallons,f.price?num(f.price).toFixed(2):'',fuelCost(f)?fuelCost(f).toFixed(2):'',
+        f.preseason?'yes':'',f.vendor,((S.budget||[]).find(l=>l.id===f.lineId)||{}).name||'',f.note])];
 }
 async function copyTable(what){
   const rows=tableFor(what);
