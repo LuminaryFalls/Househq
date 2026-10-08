@@ -315,7 +315,7 @@ function seed(){
       specs:e.specs.map(([k,v])=>({id:uid(),k,v})),
       checks:e.checks.map(([title,freq])=>({id:uid(),title,freq}))})),
     equipDone:{},
-    vehicles:[], vehicleDone:{}, pets:[], inventory:[],
+    vehicles:[], vehicleDone:{}, pets:[], inventory:[], bills:[],
     specs:[['Furnace filter',''],['Humidifier pad',''],['Well sediment filter',''],['Water heater element',''],['Fridge water filter','']].map(([k,v])=>({id:uid(),k,v})),
     logs:[], photos:[],
     contacts:[],
@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, tankOpen=false, prepayOpen=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, tankOpen=false, prepayOpen=false, budMonth=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -593,7 +593,7 @@ const online=()=>navigator.onLine!==false;
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } };
 const SYNC_KEY='hq:synced', PEND_KEY='hq:pendingphotos', PENDF_KEY='hq:pendingfiles', PREJOIN_KEY='hq:prejoin';
 let prejoin=null;   // what was on this phone before it joined a shared house
-const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','logs','photos','contacts','specs','budget','buy','files','keyDates','fuel'];
+const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','logs','photos','contacts','specs','budget','bills','buy','files','keyDates','fuel'];
 const CHECK_MAPS=['yearlyDone','equipDone','vehicleDone'];
 const META_FIELDS=['propertyName','closedPhases','lastBackup','createdAt','fuelTank'];
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -827,7 +827,14 @@ const cloud={
         if(noteMsg.startsWith('Sync hiccup')) setNote('');
         this.snapshot();
       }
-    }catch(e){ this.err=friendlyErr(e); oops('sending changes',e); setNote('Sync hiccup: '+this.err); }
+    }catch(e){
+      const {ops}=diffState(S,this.lastSynced), rest=ops.filter(o=>o.col!=='bills');
+      if(/permission-denied/.test((e&&(e.code||e.message))+'')&&rest.length<ops.length){
+        // the published rules don't allow bills yet: send everything else, and keep the bills here until they do
+        try{ if(rest.length){ await this.commit(rest,null); for(const op of rest) applyToSynced(this.lastSynced,op); await store.set(SYNC_KEY,JSON.stringify(this.lastSynced)); } }catch(e2){}
+        setNote('Bills are saved on this phone but can\'t sync yet — publish the updated Firestore rules.');
+      } else { this.err=friendlyErr(e); oops('sending changes',e); setNote('Sync hiccup: '+this.err); }
+    }
     this.pushing=false;
     if(this.pushAgain){ this.pushAgain=false; this.push(); }
   },
@@ -1062,9 +1069,8 @@ const FILE_CATS=['Plans','Budget','Papers'];
    category of "eq:<id>" / "veh:<id>" / "pet:<id>". This turns that into something readable. */
 function catLabel(cat){
   const bm=/^bill:(.+)$/.exec(cat||'');
-  if(bm){ for(const l of (S.budget||[])){ const e=(l.entries||[]).find(x=>x.id===bm[1]);
-      if(e) return 'Bill: '+l.name+(num(e.amount)?' '+money(num(e.amount)):'')+(e.date?' · '+fmtDate(e.date):''); }
-    return ''; }
+  if(bm){ const e=(S.bills||[]).find(x=>x.id===bm[1]); if(!e) return '';
+    return 'Bill: '+((lineOf(e.lineId)||{}).name||'Bill')+(num(e.amount)?' '+money(num(e.amount)):'')+(e.date?' · '+fmtDate(e.date):''); }
   const fm=/^fuel:(.+)$/.exec(cat||'');
   if(fm){ const f=(S.fuel||[]).find(x=>x.id===fm[1]); if(!f) return '';
     return (f.kind==='prepay'?'Fuel prepay':'Fuel delivery')+(f.date?' · '+fmtDate(f.date):''); }
@@ -1307,6 +1313,7 @@ function upcomingAll(){
   }
   (S.files||[]).forEach(f=>{ const w=parseDate(f.expires); if(w)
     out.push({title:(f.name||'Coverage')+' ends',sub:catLabel(f.cat)||f.cat||'Papers',when:w,act:'openfile',id:f.id}); });
+  dueReminders().forEach(x=>out.push({title:(x.rule.note||x.line.name)+' bill',sub:'Log it · '+x.line.name,when:x.date,act:'logreminder',id:x.rule.id,v:x.ym,due:true}));
   (S.vehicles||[]).forEach(veh=>(veh.checks||[]).forEach(c=>{ const n=milesLeft(veh,c);
     if(n!==null&&n<=500) out.push({title:c.title,sub:veh.name,when:null,miles:n,act:'vehiclejump',v:veh.id}); }));
   return out;
@@ -1884,6 +1891,23 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .tankfacts b{font-weight:700}
 .chk{display:flex;align-items:center;gap:10px;font-size:15px;padding:4px 0}
 .chk input{width:22px;height:22px;min-height:0;accent-color:${t.accent}}
+.monthnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.monthnav>div{text-align:center;display:grid}
+.monthnav b{font-size:20px;font-weight:800}
+.monthnav small{font-size:13px;color:${t.ink70}}
+.monthnav button{width:42px;height:42px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;
+  background:${t.ground};border:1px solid ${t.ink}1F;color:${t.ink}}
+.monthnav button:disabled{opacity:.35}
+.mbreak{display:grid;gap:2px;margin-top:12px}
+.mbrow{display:grid;grid-template-columns:1fr auto;gap:2px 10px;width:100%;min-height:0;margin:0;padding:8px 0;border:0;border-radius:0;
+  border-bottom:1px solid ${t.rule};background:none;text-align:left;color:${t.ink};align-items:baseline}
+.mbrow:last-child{border-bottom:0}
+.mbname{font-size:15px;font-weight:600;display:grid}
+.mbamt{font-size:16px;font-weight:700;display:grid;justify-items:end}
+.mbname i,.mbamt i{font-style:normal;font-weight:400;font-size:12px;color:${t.ink70}}
+.mbbar{grid-column:1/-1;height:6px;border-radius:99px;background:${t.ink}12;overflow:hidden}
+.mbbar i{display:block;height:100%;border-radius:99px;background:${t.accent}}
+button.mcol{background:none;border:0;padding:0;min-height:0;border-radius:6px;color:inherit}
 .mchart{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;align-items:end;margin-top:14px}
 .mcol{display:grid;grid-template-rows:14px 72px 16px;justify-items:center;gap:2px;min-width:0}
 .mcol .mval{font-size:9px;color:${t.ink70};white-space:nowrap;overflow:visible}
@@ -2286,7 +2310,10 @@ function searchAll(ql){
     add('Fuel',fmtDate(f.date),[isPrepay(f)?'prepay '+money(num(f.amount)):isReading(f)?'gauge '+num(f.pct)+'%':f.gallons?f.gallons+' gal':'',f.vendor,f.note],
       isPrepay(f)?'prepay':isReading(f)?'fuelread':'fuel',f.id); });
   (S.budget||[]).forEach(l=>{ if(has(l.name))
-    add('Budget',l.name,[money(lineSpent(l,S.activeYear))+' in '+S.activeYear],'line',l.id); });
+    add('Budget',l.name,[money(lineSpent(l,budYear()))+' in '+budYear()],'line',l.id); });
+  (S.bills||[]).forEach(e=>{ const l=lineOf(e.lineId); const amt=num(e.amount);
+    if(has(e.note,l&&l.name,amt.toFixed(2),money(amt)))
+      add('Bills',money(amt)+(l?' · '+l.name:''),[fmtDate(e.date),e.note],'spendedit',e.id); });
   (S.buy||[]).forEach(b=>{ if(has(b.title,b.note))
     add('Things to buy',b.title,[b.bought?'bought '+fmtDate(b.bought):'not bought yet',b.note],'buyedit',b.id); });
   return out;
@@ -2537,7 +2564,7 @@ const yearOf=d=>+String(d||'').slice(0,4);
    service records assigned to it. Each is {date, amt, kind, ref}. */
 function catItems(l){
   const L=prepayLedger(), out=[];
-  (l.entries||[]).forEach(e=>out.push({date:e.date||'',amt:num(e.amount),kind:'bill',ref:e}));
+  billsOf(l.id).forEach(e=>out.push({date:e.date||'',amt:num(e.amount),kind:'bill',ref:e}));
   (S.buy||[]).filter(x=>x.lineId===l.id&&x.bought).forEach(b=>out.push({date:b.bought,amt:num(b.paid||b.est),kind:'buy',ref:b}));
   (S.fuel||[]).filter(x=>x.lineId===l.id).forEach(f=>{ const a=fuelSpend(f,L); if(a) out.push({date:f.date||'',amt:a,kind:'fuel',ref:f}); });
   (S.logs||[]).filter(x=>x.lineId===l.id&&num(x.cost)).forEach(r=>out.push({date:(r.date||'').slice(0,10),amt:num(r.cost),kind:'record',ref:r}));
@@ -2546,6 +2573,7 @@ function catItems(l){
 /* Spending with no category: records, purchases and fuel not put on one. */
 function looseItems(){
   const L=prepayLedger(), out=[];
+  (S.bills||[]).filter(b=>!lineOf(b.lineId)).forEach(e=>out.push({date:e.date||'',amt:num(e.amount),kind:'bill',ref:e}));
   (S.buy||[]).filter(x=>!x.lineId&&x.bought).forEach(b=>out.push({date:b.bought,amt:num(b.paid||b.est),kind:'buy',ref:b}));
   (S.fuel||[]).filter(x=>!x.lineId).forEach(f=>{ const a=fuelSpend(f,L); if(a) out.push({date:f.date||'',amt:a,kind:'fuel',ref:f}); });
   (S.logs||[]).filter(x=>!x.lineId&&num(x.cost)).forEach(r=>out.push({date:(r.date||'').slice(0,10),amt:num(r.cost),kind:'record',ref:r}));
@@ -2556,10 +2584,10 @@ const sumIn=(items,y)=>items.filter(it=>yearOf(it.date)===y).reduce((s,it)=>s+it
 const sumByDay=(items,y,md)=>items.filter(it=>yearOf(it.date)===y&&(it.date||'').slice(5,10)<=md).reduce((s,it)=>s+it.amt,0);
 const monthTotals=(items,y)=>{ const m=Array(12).fill(0); items.forEach(it=>{ if(yearOf(it.date)===y){ const k=+(it.date||'').slice(5,7)-1; if(k>=0&&k<12) m[k]+=it.amt; } }); return m; };
 const shortMoney=v=>v>=1000?'$'+(v/1000).toFixed(v>=10000?0:1)+'k':'$'+Math.round(v);
-function monthChart(m,highlight){
-  const max=Math.max(...m,0);
-  return `<div class="mchart">${m.map((v,i)=>`<div class="mcol ${i===highlight?'cur':''}">
-    <span class="mval">${v?shortMoney(v):''}</span><span class="mbar"><i style="height:${max?Math.max(v?4:0,v/max*100):0}%"></i></span><b>${'JFMAMJJASOND'[i]}</b></div>`).join('')}</div>`;
+function monthChart(m,highlight,year){
+  const max=Math.max(...m,0), tag=year?'button':'div';
+  return `<div class="mchart">${m.map((v,i)=>`<${tag} class="mcol ${i===highlight?'cur':''}" ${year?`data-act="budmonthset" data-v="${year}-${String(i+1).padStart(2,'0')}" aria-label="${'JFMAMJJASOND'[i]}"`:''}>
+    <span class="mval">${v?shortMoney(v):''}</span><span class="mbar"><i style="height:${max?Math.max(v?4:0,v/max*100):0}%"></i></span><b>${'JFMAMJJASOND'[i]}</b></${tag}>`).join('')}</div>`;
 }
 /* Compare with last year: up to today when looking at this year, the whole year otherwise. */
 function vsLastYear(items,y,total){
@@ -2570,6 +2598,67 @@ function vsLastYear(items,y,total){
   return `${cur?'This time last year':'All of '+(y-1)}: ${money(prev)}${d?` — ${d>0?'up':'down'} ${money(Math.abs(d))}`:' — the same'}`;
 }
 function lineSpent(l,y){ return sumIn(catItems(l),y); }
+/* Bills used to live inside their category, so two phones saving the same category at once could
+   drop one. Each bill is now its own record. Older ones move out, keeping their ids, so it's safe
+   to run on both phones and again whenever an older copy syncs in. */
+function migrateBills(st){
+  st.bills=st.bills||[]; let n=0;
+  for(const l of (st.budget||[])){
+    if(!(l.entries&&l.entries.length)) continue;
+    for(const e of l.entries){ if(!st.bills.some(b=>b.id===e.id)){ st.bills.push({...e,lineId:l.id}); n++; } }
+    l.entries=[];
+  }
+  return n;
+}
+const billsOf=lineId=>(S.bills||[]).filter(b=>b.lineId===lineId);
+const lineOf=id=>(S.budget||[]).find(l=>l.id===id);
+/* ---------- Budget: months and repeating bills ---------- */
+const ymOf=d=>(d||'').slice(0,7);
+const ymNow=()=>isoOf(new Date()).slice(0,7);
+const ymAdd=(ym,n)=>{ const [y,m]=ym.split('-').map(Number), d=new Date(y,m-1+n,1); return isoOf(d).slice(0,7); };
+const ymName=ym=>{ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleString(undefined,{month:'long',year:'numeric'}); };
+const REPEATS=[[0,"Doesn't repeat"],[1,'Every month'],[3,'Every 3 months'],[6,'Every 6 months'],[12,'Every year']];
+const repeatWordM=n=>(REPEATS.find(([v])=>v===+n)||[0,'every '+n+' months'])[1];
+/* A repeating bill's dates, from its start, up to and including today. */
+function ruleDates(r,until){
+  const out=[], start=parseDate(r.start); if(!start||start.getFullYear()<2000||!(+r.every>0)) return out;
+  const stop=r.end?parseDate(r.end):null, lim=until||today0();
+  for(let k=0,d=start;k<240&&d<=lim&&(!stop||d<=stop);k++,d=addMonths(start,k*+r.every)) out.push(d);
+  return out;
+}
+function nextDate(r){ const start=parseDate(r.start); if(!start||!(+r.every>0)) return null;
+  const t=today0(); for(let k=0;k<400;k++){ const d=addMonths(start,k*+r.every); if(d>t) return d; } return null; }
+function dueReminders(){
+  const out=[], soon=new Date(today0().getTime()+30*DAY), early=new Date(today0().getTime()-45*DAY);
+  for(const l of (S.budget||[])) for(const r of (l.recurring||[])){
+    if(!r.remind||r.end) continue;
+    for(const d of ruleDates(r,soon)){
+      if(d<early) continue;
+      const ym=isoOf(d).slice(0,7);
+      if((r.skip||[]).includes(ym)) continue;
+      if((S.bills||[]).some(b=>b.recur===r.id&&ymOf(b.date)===ym)) continue;
+      out.push({rule:r,line:l,date:d,ym});
+    }
+  }
+  return out.sort((a,b)=>a.date-b.date);
+}
+/* Fill in any repeating bill that has come due. Ids are the rule plus the month, so both phones
+   create the very same entry and it can never double up. Returns how many it added. */
+function applyRecurring(){
+  let n=0;
+  S.bills=S.bills||[];
+  for(const l of (S.budget||[])) for(const r of (l.recurring||[])){
+    if(r.remind) continue;   // "remind me" repeats wait for you to log the real amount
+    for(const d of ruleDates(r)){
+      const ym=isoOf(d).slice(0,7);
+      if((r.skip||[]).includes(ym)) continue;
+      if(S.bills.some(e=>e.recur===r.id&&ymOf(e.date)===ym)) continue;
+      S.bills.push({id:r.id+'-'+ym,lineId:l.id,date:isoOf(d),amount:num(r.amount),note:r.note||'',recur:r.id,auto:true}); n++;
+    }
+  }
+  return n;
+}
+
 const logSpent=y=>S.logs.filter(l=>!l.lineId&&yearOf(l.date)===y).reduce((s,l)=>s+num(l.cost),0);   // records on a line count there instead
 const fuelCost=f=>num(f.total)||num(f.gallons)*num(f.price);   // what the fuel was worth
 const isPrepay=f=>f&&f.kind==='prepay';
@@ -2592,7 +2681,7 @@ const unassignedFuel=y=>{ const L=prepayLedger(); return (S.fuel||[]).filter(x=>
 const unassignedBuys=y=>(S.buy||[]).filter(x=>!x.lineId&&x.bought&&yearOf(x.bought)===y).reduce((s,x)=>s+num(x.paid||x.est),0);
 function budgetYears(){
   const set=new Set(yearsTouched());
-  (S.budget||[]).forEach(l=>(l.entries||[]).forEach(e=>set.add(yearOf(e.date))));
+  (S.bills||[]).forEach(e=>set.add(yearOf(e.date)));
   (S.buy||[]).forEach(b=>{ if(b.bought) set.add(yearOf(b.bought)); });
   (S.fuel||[]).forEach(f=>set.add(yearOf(f.date)));
   return [...set].filter(Boolean).sort((a,b)=>a-b);
@@ -2601,8 +2690,12 @@ function bar(spent,planned){
   const pct=planned>0?Math.min(100,Math.round(spent/planned*100)):0, over=planned>0&&spent>planned;
   return `<div class="bar"><i style="width:${pct}%" class="${over?'over':''}"></i></div>`;
 }
+const budYear=()=>+(budMonth||ymNow()).slice(0,4);
+/* Furthest month you can page to: this month, or later if a bill is dated ahead. */
+function budMaxYm(){ const later=(S.bills||[]).map(b=>ymOf(b.date)).filter(m=>m&&m>ymNow()).sort().pop(); return later||ymNow(); }
 function viewBudget(){
-  const y=S.activeYear, now=new Date().getFullYear(), years=budgetYears();
+  if(migrateBills(S)+(!(modal&&modal.kind==='spend')?applyRecurring():0)) saveSoon();   // tidy and fill in bills before anything is totalled
+  const y=budYear(), now=new Date().getFullYear(), years=budgetYears();
   const lines=S.budget||[], buys=S.buy||[];
   const planned=lines.reduce((s,l)=>s+num(l.planned),0);
   const fromLogs=logSpent(y), loose=unassignedBuys(y), looseFuel=unassignedFuel(y);
@@ -2622,20 +2715,39 @@ function viewBudget(){
   const spentY=sumIn(all,y), looseY=sumIn(loose_,y);
   const suggest=['Trash','Pest control','Electricity','Heating fuel','Internet','Water and septic','Maintenance and repairs']
     .filter(n=>!lines.some(l=>(l.name||'').toLowerCase().includes(n.toLowerCase().split(' ')[0])));
-  return `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:stretch">
-    <div class="yearbar" style="flex:1;margin:0">
-      <button data-act="year" data-v="${y-1}" ${y-1<Math.min(...years)?'disabled':''} aria-label="Previous year">${I.left}</button>
-      <div style="text-align:center"><b>${y}</b><small>${money(spentY)} spent</small></div>
-      <button data-act="year" data-v="${y+1}" ${y+1>now?'disabled':''} aria-label="Next year">${I.right}</button>
+  const ym=budMonth||ymNow(), [ymY,ymM]=ym.split('-').map(Number);
+  const firstYm=all.map(it=>ymOf(it.date)).filter(Boolean).sort()[0]||ymNow(), backTo=[firstYm,ymAdd(ymNow(),-12)].sort()[0];
+  const inM=(items,m)=>items.filter(it=>ymOf(it.date)===m).reduce((a,it)=>a+it.amt,0);
+  const mTotal=inM(all,ym), lastYm=ymAdd(ym,-12), mPrev=inM(all,lastYm);
+  const brk=[...cats.map(c=>({name:c.l.name,id:c.l.id,amt:inM(c.items,ym),n:c.items.filter(it=>ymOf(it.date)===ym).length})),
+    {name:'No category',id:'',amt:inM(loose_,ym),n:loose_.filter(it=>ymOf(it.date)===ym).length}].filter(x=>x.amt>0).sort((p,q)=>q.amt-p.amt);
+  const waiting=dueReminders().filter(x=>x.date<=new Date(today0().getTime()+7*DAY));
+  return `${waiting.length?`<div class="card"><div class="inner" style="padding-top:12px">
+      <b style="font-size:15px">Bills to log</b>
+      ${waiting.map(x=>{ const n=daysAway(x.date); return `<div class="row billrow" style="align-items:center"><div class="body">
+        <div class="t">${esc(x.rule.note||x.line.name)}</div><div class="m">${esc(x.line.name)} · ${n<0?'was due '+fmtDate(isoOf(x.date)):n===0?'due today':'due '+fmtDate(isoOf(x.date))}</div></div>
+        <button class="btn solid" style="width:auto;flex:0 0 auto;padding:0 16px;min-height:38px" data-act="logreminder" data-id="${x.rule.id}" data-v="${x.ym}">Log it</button></div>`; }).join('')}
+    </div></div>`:''}<div class="card monthcard"><div class="inner" style="padding-top:12px">
+    <div class="monthnav">
+      <button data-act="budmonth" data-v="-1" ${ym<=backTo?'disabled':''} aria-label="Previous month">${I.left}</button>
+      <div><b>${esc(ymName(ym))}</b><small>${money(mTotal)} spent</small></div>
+      <button data-act="budmonth" data-v="1" ${ym>=budMaxYm()?'disabled':''} aria-label="Next month">${I.right}</button>
     </div>
-  </div>
+    ${mPrev?`<p class="trend" style="margin:4px 0 0;text-align:center">${esc(ymName(lastYm))}: ${money(mPrev)}${mTotal!==mPrev?` — ${mTotal>mPrev?'up':'down'} ${money(Math.abs(mTotal-mPrev))}`:''}</p>`:''}
+    ${brk.length?`<div class="mbreak">${brk.map(x=>`<${x.id?`button data-act="line" data-id="${x.id}"`:'div'} class="mbrow">
+        <span class="mbname">${esc(x.name)}<i>${x.n===1?'1 entry':x.n+' entries'}</i></span>
+        <span class="mbamt">${money(x.amt)}<i>${Math.round(x.amt/mTotal*100)}%</i></span>
+        <span class="mbbar"><i style="width:${(x.amt/brk[0].amt*100).toFixed(1)}%"></i></span>
+      </${x.id?'button':'div'}>`).join('')}</div>`
+      :`<p class="hint" style="margin:12px 0 4px;text-align:center">Nothing logged in ${esc(ymName(ym))}.</p>`}
+  </div></div>
   <button class="btn solid" style="margin-bottom:14px" data-act="newspend">${I.plus} Add a bill or expense</button>
   <div class="card"><div class="inner" style="padding-top:14px">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <span class="bignum">${money(spentY)}<small>${cur?'so far in '+y:'in '+y}</small></span>
     </div>
     ${vsLastYear(all,y,spentY)?`<p class="trend" style="margin:6px 0 0">${esc(vsLastYear(all,y,spentY))}</p>`:''}
-    ${monthChart(monthTotals(all,y),cur?nowD.getMonth():-1)}
+    ${monthChart(monthTotals(all,y),ymY===y?ymM-1:-1,y)}
   </div></div>
 
   <section class="grp zone"><h3>Categories<span>${y}${sumIn(all,y-1)?' · '+(y-1)+' for comparison':''}</span></h3>
@@ -2649,7 +2761,8 @@ function viewBudget(){
     ${looseY?`<div class="catrow" style="cursor:default">
         <span class="cattext"><b style="color:var(--ink70)">No category</b><i>Records, purchases or fuel not put in a category — pick one when you edit them</i></span>
         <span class="catamt"><b>${money(looseY)}</b></span></div>`:''}
-    <button class="btn dash" style="margin-top:10px" data-act="newline">${I.plus} Add a category</button>
+    <div class="btns h"><button class="btn dash" data-act="newline">${I.plus} Add a category</button>
+      ${spentY?`<button class="btn" data-act="csv" data-v="spend:${y}">${I.grid} Copy ${y} for a spreadsheet</button>`:''}</div>
     ${suggest.length?`<div class="chips" style="margin-top:10px;flex-wrap:wrap">${suggest.map(n=>`<button class="chip" data-act="quickcat" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}
   </section>
 
@@ -3348,7 +3461,7 @@ function modalHTML(){
   }
   if(modal.kind==='line'){
     const l=(S.budget||[]).find(x=>x.id===modal.id); if(!l) return '';
-    const y=S.activeYear, now=new Date(), cur=y===now.getFullYear(), items=catItems(l);
+    const y=budYear(), now=new Date(), cur=y===now.getFullYear(), items=catItems(l);
     const ty=sumIn(items,y), yi=items.filter(it=>yearOf(it.date)===y).sort((p,q)=>(q.date||'').localeCompare(p.date||''));
     // average from the first month that has anything, so a house you moved into in the fall isn't divided by twelve
     const mt=monthTotals(items,y), first=mt.findIndex(v=>v>0), monthsIn=first<0?1:((cur?now.getMonth():11)-first+1)||1, cmp=vsLastYear(items,y,ty);
@@ -3366,21 +3479,18 @@ function modalHTML(){
         :`<div class="row billrow"><div class="body"><div class="t">${money(it.amt)}</div>
             <div class="m">${esc([fmtDate(it.date),src[it.kind],it.kind==='buy'?it.ref.title:it.kind==='record'?(it.ref.subject||it.ref.what):it.ref.vendor].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`
         :`<p class="hint" style="margin:0">Nothing in ${esc(l.name)} for ${y} yet.</p>`}
+      ${(l.recurring||[]).filter(r=>!r.end).length?`<h3 class="sub" style="margin:8px 0 0">Repeating</h3>
+        ${(l.recurring||[]).filter(r=>!r.end).map(r=>{ const nx=nextDate(r);
+          return `<div class="row billrow" style="align-items:center"><div class="body">
+            <div class="t">${r.remind?'Reminder':money(num(r.amount))} · ${esc(repeatWordM(r.every).toLowerCase())}</div>
+            <div class="m">${esc([nx?'next '+fmtDate(isoOf(nx)):'',r.note].filter(Boolean).join(' · '))}</div></div>
+            <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px;min-height:38px" data-act="stoprecur" data-id="${r.id}" data-line="${l.id}">Stop</button></div>`; }).join('')}`:''}
+      <div class="btns h">
+        <button class="btn" data-act="catmove" data-id="${l.id}" data-v="-1" ${S.budget[0]&&S.budget[0].id===l.id?'disabled':''}>${I.left} Move up</button>
+        <button class="btn" data-act="catmove" data-id="${l.id}" data-v="1" ${S.budget[S.budget.length-1]&&S.budget[S.budget.length-1].id===l.id?'disabled':''}>Move down ${I.right}</button>
+      </div>
       <button class="btn" data-act="lineedit" data-id="${l.id}">${I.pencil} Rename this category</button>
       <button class="btn danger big" data-act="dellinesheet" data-id="${l.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this category'}</button>`);
-  }
-  if(modal.kind==='lineOLD'){
-    const l=(S.budget||[]).find(x=>x.id===modal.id); if(!l) return '';
-    const y=S.activeYear, es=(l.entries||[]).filter(e=>yearOf(e.date)===y).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-    const bs=(S.buy||[]).filter(b=>b.lineId===l.id&&b.bought&&yearOf(b.bought)===y);
-    return sheet(l.name,`
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><b class="cond" style="font-size:20px">${money(lineSpent(l,y))} in ${y}</b><span class="hint" style="margin:0">${num(l.planned)?'planned '+money(num(l.planned)):'no plan set'}</span></div>
-      ${bar(lineSpent(l,y),num(l.planned))}
-      ${es.length||bs.length?`<div class="log">${es.map(e=>`<div class="e" style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><div class="d">${money(num(e.amount))}<em>${esc(fmtDate(e.date))}</em></div>${e.note?`<div class="w">${esc(e.note)}</div>`:''}</div><button class="icb" data-act="delspend" data-id="${e.id}" data-line="${l.id}" aria-label="Remove">${I.trash}</button></div>`).join('')}
-        ${bs.map(b=>`<div class="e"><div class="d">${money(num(b.paid||b.est))}<em>${esc(fmtDate(b.bought))} · bought</em></div><div class="w">${esc(b.title)}</div></div>`).join('')}</div>`
-        :`<p class="hint" style="margin:0">Nothing spent on this yet in ${y}.</p>`}
-      <button class="btn solid" data-act="newspend" data-id="${l.id}">${I.plus} Add spending</button>
-      <button class="btn" data-act="lineedit" data-id="${l.id}">${I.pencil} Edit name or plan</button>`);
   }
   if(modal.kind==='lineedit'){
     const d=modal.draft;
@@ -3397,6 +3507,14 @@ function modalHTML(){
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
       </div>
       <input data-m="note" value="${esc(d.note)}" placeholder="What it was — e.g. October bill, quarterly spray">
+      ${d.auto?`<p class="hint" style="margin:0">Part of a repeating bill. Change or stop it from the category.</p>`
+        :d.recurFor?`<p class="hint" style="margin:0">Logged for a repeating reminder.</p>`
+        :`<label class="lbl">Repeats<select data-m="every">${REPEATS.map(([v,l])=>`<option value="${v}" ${+d.every===v?'selected':''}>${l}</option>`).join('')}</select></label>
+        ${+d.every?`<label class="lbl">Each time<select data-m="repeatMode">
+            <option value="fixed" ${d.repeatMode!=='remind'?'selected':''}>Add it at this amount</option>
+            <option value="remind" ${d.repeatMode==='remind'?'selected':''}>Just remind me to log it (amount changes)</option></select></label>
+          <p class="hint" style="margin:0">${d.repeatMode==='remind'?`You'll get a reminder ${repeatWordM(d.every).toLowerCase()} in Coming up and here in Budget, and enter that bill's real amount.`
+            :`It'll be added for you ${repeatWordM(d.every).toLowerCase()} from this date, at this amount.`}</p>`:''}`}
       <h3 class="sub" style="margin:6px 0 0">Invoice or receipt</h3>
       ${filesSection('bill:'+d.id,'Nothing attached. Upload the PDF or a photo of the bill, or paste a link to it.')}
       <button class="btn solid" data-act="done">Done</button>
@@ -3723,11 +3841,17 @@ function commitDraft(){
   }else if(modal.kind==='spend'){
     if(!(num(d.amount)>0)) return;
     const l=S.budget.find(x=>x.id===d.lineId); if(!l) return;
-    (S.budget||[]).forEach(o=>{ if(o!==l&&o.entries){ const j=o.entries.findIndex(e=>e.id===d.id); if(j>=0) o.entries.splice(j,1); } });
-    l.entries=l.entries||[];
-    const rec={id:d.id,date:d.date,amount:num(d.amount),note:d.note||''};
-    const i=l.entries.findIndex(e=>e.id===d.id);
-    if(i>=0) l.entries[i]=rec; else l.entries.push(rec);
+    const rid='r'+d.id; S.bills=S.bills||[];
+    (S.budget||[]).forEach(o=>{ if(o!==l&&o.recurring){ const k=o.recurring.findIndex(r=>r.id===rid); if(k>=0) (l.recurring=l.recurring||[]).push(o.recurring.splice(k,1)[0]); } });
+    const i=S.bills.findIndex(e=>e.id===d.id), prev=i>=0?S.bills[i]:{};
+    const rec={...prev,id:d.id,lineId:l.id,date:d.date,amount:num(d.amount),note:d.note||''};
+    if(d.recurFor) rec.recur=d.recurFor;   // logged for a "remind me" repeat
+    if(!d.auto&&!d.recurFor){ l.recurring=l.recurring||[]; const ri=l.recurring.findIndex(r=>r.id===rid);
+      if(+d.every>0){ const rule={id:rid,amount:num(d.amount),every:+d.every,start:d.date,note:d.note||'',remind:d.repeatMode==='remind'};
+        if(ri>=0) l.recurring[ri]={...l.recurring[ri],...rule,end:''}; else l.recurring.push({...rule,skip:[]});
+        rec.recur=rid; }
+      else if(ri>=0){ l.recurring.splice(ri,1); delete rec.recur; } }
+    if(i>=0) S.bills[i]=rec; else S.bills.push(rec);
     LS('hq:lastcat',l.id);
   }else if(modal.kind==='buyedit'){
     if(!(d.title||'').trim()) return;
@@ -3833,7 +3957,7 @@ document.addEventListener('input',async e=>{
       modal.draft[el.dataset.m]=el.type==='checkbox'?el.checked:el.value;
       if(el.dataset.m==='season'){ if(!seasonMonths(el.value).includes(+modal.draft.month)) modal.draft.month=0; commitDraft(); render(); return; }
       commitDraft();
-      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)) render();   // live gallons and cost
+      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))) render();   // live gallons and cost
     } else modal[el.dataset.m]=el.value;
     return; }
   if(!a) return;
@@ -4322,17 +4446,25 @@ document.addEventListener('click',async e=>{
   if(a==='newspend'){ const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
     if(!(S.budget||[]).length) S.budget.push({id:uid(),name:'Other',planned:0,entries:[]});
     const last=LS('hq:lastcat'), lineId=id||((S.budget||[]).some(l=>l.id===last)?last:S.budget[0].id);
-    modalAt=Date.now(); modal={kind:'spend',isNew:true,back,draft:{id:uid(),lineId,amount:'',date:isoOf(new Date()),note:''}}; render(); return; }
-  if(a==='spendedit'){ const l=S.budget.find(x=>x.id===btn.dataset.line), e=l&&(l.entries||[]).find(x=>x.id===id); if(!e) return;
+    modalAt=Date.now(); modal={kind:'spend',isNew:true,back,draft:{id:uid(),lineId,amount:'',date:isoOf(new Date()),note:'',every:'0'}}; render(); return; }
+  if(a==='spendedit'){ const e=(S.bills||[]).find(x=>x.id===id); if(!e) return;
+    const l=lineOf(e.lineId)||S.budget[0]; if(!l) return;
     const back=modal&&modal.kind==='line'?{kind:'line',id:modal.id}:null;
-    modalAt=Date.now(); modal={kind:'spend',back,draft:{...e,lineId:l.id,amount:String(e.amount)}}; render(); return; }
+    const rule=(l.recurring||[]).find(r=>r.id==='r'+e.id&&!r.end);
+    const forRule=e.recur&&e.recur!=='r'+e.id&&!e.auto?e.recur:'';
+    modalAt=Date.now(); modal={kind:'spend',back,draft:{...e,lineId:l.id,amount:String(e.amount),every:rule?String(rule.every):'0',
+      repeatMode:rule&&rule.remind?'remind':'fixed',recurFor:forRule}}; render(); return; }
   if(a==='delspendsheet'){
     if(modal&&modal.kind==='spend'&&!modal.confirm){ modal.confirm=true; render(); return; }
-    const l=(S.budget||[]).find(o=>(o.entries||[]).some(e=>e.id===id)); if(!l) return;
+    const i=(S.bills||[]).findIndex(e=>e.id===id); if(i<0) return;
     const back=modal&&modal.back; modal=back||null;   // back to the category, without re-saving the bill
-    const i=l.entries.findIndex(e=>e.id===id), [e]=l.entries.splice(i,1);
+    const [e]=S.bills.splice(i,1), l=lineOf(e.lineId)||{name:'the budget',recurring:[]};
     const kept=releaseFiles('bill:'+e.id);
-    deleted(money(num(e.amount))+' from '+l.name,()=>{ l.entries.splice(i,0,e); kept(); }); return; }
+    const rule=(l.recurring||[]).find(r=>r.id===e.recur), ym=ymOf(e.date);
+    let undoRule=()=>{};
+    if(rule&&e.auto){ rule.skip=[...(rule.skip||[]),ym]; undoRule=()=>{ rule.skip=rule.skip.filter(x=>x!==ym); }; }
+    else if(rule&&rule.id==='r'+e.id){ const was=rule.end||''; rule.end=isoOf(new Date()); undoRule=()=>{ rule.end=was; }; }
+    deleted(money(num(e.amount))+' from '+l.name,()=>{ S.bills.splice(i,0,e); kept(); undoRule(); }); return; }
   if(a==='dellinesheet'){
     if(modal&&modal.kind==='line'&&!modal.confirm){ modal.confirm=true; render(); return; }
     const i=S.budget.findIndex(x=>x.id===id); if(i<0) return;
@@ -4341,12 +4473,26 @@ document.addEventListener('click',async e=>{
     // its fuel, purchases and records drop to "no category" so their spending still counts
     const moved=[...(S.logs||[]),...(S.fuel||[]),...(S.buy||[])].filter(x=>x.lineId===l.id);
     moved.forEach(x=>x.lineId='');
-    const kept=(l.entries||[]).map(e=>releaseFiles('bill:'+e.id));   // its bills' invoices go to Papers
-    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); moved.forEach(x=>x.lineId=l.id); kept.forEach(k=>k()); }); return; }
+    // its bills go with it (Undo brings them back); their invoices go to Papers
+    const gone=(S.bills||[]).filter(b=>b.lineId===l.id); S.bills=S.bills.filter(b=>b.lineId!==l.id);
+    const kept=gone.map(e=>releaseFiles('bill:'+e.id));
+    deleted('\u201c'+l.name+'\u201d',()=>{ S.budget.splice(i,0,l); S.bills.push(...gone); moved.forEach(x=>x.lineId=l.id); kept.forEach(k=>k()); }); return; }
+  if(a==='logreminder'){ const l=(S.budget||[]).find(o=>(o.recurring||[]).some(r=>r.id===id)); if(!l) return;
+    const r=l.recurring.find(x=>x.id===id), d=ruleDates(r,new Date(today0().getTime()+60*DAY)).find(x=>isoOf(x).slice(0,7)===v);
+    modalAt=Date.now(); modal={kind:'spend',isNew:true,draft:{id:uid(),lineId:l.id,amount:'',date:d?isoOf(d):isoOf(new Date()),note:r.note||'',every:'0',recurFor:r.id}};
+    if(tab!=='budget'){ tab='budget'; } render(); return; }
+  if(a==='budmonth'){ const ym=ymAdd(budMonth||ymNow(),+v); if(ym>budMaxYm()) return; budMonth=ym; render(); return; }   // Budget keeps its own month; other tabs' year is untouched
+  if(a==='budmonthset'){ if(v>budMaxYm()) return; budMonth=v; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
+  if(a==='catmove'){ const arr=S.budget; arr.forEach((l,k)=>l._o=k);
+    const i=arr.findIndex(l=>l.id===id), j=i+(+v); if(i<0||j<0||j>=arr.length) return;
+    [arr[i],arr[j]]=[arr[j],arr[i]]; arr.forEach((l,k)=>l._o=k);   // the order number is what syncs, so both phones agree
+    render(); save(); return; }
+  if(a==='stoprecur'){ const l=S.budget.find(x=>x.id===btn.dataset.line), r=l&&(l.recurring||[]).find(x=>x.id===id); if(!r) return;
+    r.end=isoOf(new Date()); render(); save();
+    setNote(r.remind?'Reminder stopped.':'Stopped. Bills already added stay where they are.','ok'); return; }
   if(a==='quickcat'){ S.budget.push({id:uid(),name:v,planned:0,entries:[]}); render(); save(); return; }
-  if(a==='delspend'){ const l=S.budget.find(x=>x.id===btn.dataset.line); if(!l) return;
-    const i=(l.entries||[]).findIndex(e=>e.id===id); if(i<0) return;
-    const [e]=l.entries.splice(i,1); deleted(money(num(e.amount))+' from '+l.name,()=>l.entries.splice(i,0,e)); return; }
+  if(a==='delspend'){ const i=(S.bills||[]).findIndex(e=>e.id===id); if(i<0) return;
+    const [e]=S.bills.splice(i,1); deleted(money(num(e.amount)),()=>S.bills.splice(i,0,e)); return; }
   if(a==='newbuy'){ modalAt=Date.now(); modal={kind:'buyedit',isNew:true,draft:{id:uid(),title:'',est:'',note:'',url:'',lineId:'',bought:null,paid:''}}; render(); return; }
   if(a==='buyedit'){ const b=S.buy.find(x=>x.id===id); if(!b) return;
     modalAt=Date.now(); modal={kind:'buyedit',draft:{...b,est:b.est||'',paid:b.paid||''}}; render(); return; }
@@ -4478,7 +4624,7 @@ function saveFile(text,name,type){
    so a restore can be checked over before it replaces what is here. */
 function normalize(st){
   if(!st||typeof st!=='object') throw new Error('not a House HQ state');
-  for(const k of ['tasks','yearly','equipment','vehicles','pets','inventory','specs','logs','photos','contacts','budget','buy','files','keyDates','fuel'])
+  for(const k of ['tasks','yearly','equipment','vehicles','pets','inventory','specs','logs','photos','contacts','budget','bills','buy','files','keyDates','fuel'])
     if(!Array.isArray(st[k])) st[k]=[];
   if(!st.keyDates.length) st.keyDates=keyDateSeed();
   st.tasks.forEach(t=>{ if(t.contactId===undefined) t.contactId=''; });
@@ -4585,6 +4731,14 @@ function buildHandoff(){
     [x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',x.serial?'serial '+x.serial:'',
      (x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):'',x.note].filter(Boolean).join(' · ')]))
     +(invTotal?`<p class="sub">Total listed: ${money(invTotal)}</p>`:''):'';
+  // average per month over the last 12 months, counted from each category's first bill in that window
+  const from=ymAdd(ymNow(),-11);
+  const costs=(S.budget||[]).map(l=>{ const items=catItems(l).filter(it=>ymOf(it.date)>=from&&ymOf(it.date)<=ymNow());
+      if(!items.length) return null;
+      const first=items.map(it=>ymOf(it.date)).sort()[0], [fy,fm]=first.split('-').map(Number), [ny,nm]=ymNow().split('-').map(Number);
+      const months=(ny-fy)*12+(nm-fm)+1, tot=items.reduce((a,it)=>a+it.amt,0);
+      return [l.name,`about ${money(tot/months)} a month · ${money(tot)} over ${months} month${months===1?'':'s'}`]; }).filter(Boolean);
+  const runCosts=costs.length?hoTable(costs)+'<p class="sub">From the bills and costs logged in House HQ over the last 12 months.</p>':'';
   const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
   const logs=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
@@ -4625,6 +4779,7 @@ ${hoSection('Pets',pets)}
 ${hoSection('Home inventory',inventory)}
 ${hoSection('Who to call',contacts)}
 ${hoSection('Service history',hoTable(logs))}
+${hoSection('What it costs to run',runCosts)}
 ${hoSection('Fuel deliveries',hoTable(fuelRows))}
 ${hoSection('The seasonal round',seasonal)}
 ${hoSection('Papers and plans on file',files)}
@@ -4637,6 +4792,13 @@ ${hoSection('Photographs',photos)}
    Tab-separated pastes straight into Excel or Sheets as columns. */
 const tsvCell=v=>String(v==null?'':v).replace(/[\t\r\n]+/g,' ');
 function tableFor(what){
+  if(/^spend:\d{4}$/.test(what)){
+    const y=+what.slice(6), src={bill:'Bill',buy:'Purchase',fuel:'Fuel',record:'Service record'};
+    const rows=[...(S.budget||[]).flatMap(l=>catItems(l).map(it=>({...it,cat:l.name}))),...looseItems().map(it=>({...it,cat:'No category'}))]
+      .filter(it=>yearOf(it.date)===y).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const note=it=>it.kind==='bill'?it.ref.note:it.kind==='buy'?it.ref.title:it.kind==='record'?(it.ref.subject||it.ref.what):(it.ref.vendor||it.ref.note);
+    return [['Date','Category','Amount','Kind','Note'],...rows.map(it=>[it.date,it.cat,it.amt.toFixed(2),src[it.kind],note(it)||''])];
+  }
   if(what==='inventory')
     return [['Item','Room','Value','Bought','Serial / model','Photos','Note'],
       ...(S.inventory||[]).map(x=>[x.title,x.room,num(x.value)?num(x.value).toFixed(2):'',x.bought,x.serial,(x.photos||[]).length||'',x.note])];
@@ -4916,6 +5078,7 @@ async function mountViewer(){
   const fresh=!raw; bootFresh=fresh;
   try{ S=raw?JSON.parse(raw):seed(); }catch(e){ S=seed(); }
   normalize(S);
+  migrateBills(S);
   const lt=LS('hq:theme'); if(lt&&THEMES[lt]) S.theme=lt;
   if(!setupOpen()) tab='seasons';
   if(!store.saving()) setNote('This browser is not letting the app save. Download a backup before you close it.');
