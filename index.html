@@ -328,7 +328,7 @@ function seed(){
    App state
 ============================================================ */
 let S=null, tab='list', filter='All', q='', seasonSel=currentSeason(), editing=false, slippedOpen=false,
-    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, tankOpen=false, prepayOpen=false, budMonth=null, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
+    openEquip=null, openVehicle=null, openPet=null, upcomingOpen=false, lastDueDone=null, searchOpen=false, openAlbum=null, tankOpen=false, prepayOpen=false, budMonth=null, budMonthOpen=false, catOrganize=false, modal=null, photoCache={}, thumbCache={}, noteMsg='', noteKind='', modalAt=0;
 const THUMB=260;   // the wall and the strips show this; full size is loaded only when one is opened
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1892,7 +1892,15 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .chk{display:flex;align-items:center;gap:10px;font-size:15px;padding:4px 0}
 .chk input{width:22px;height:22px;min-height:0;accent-color:${t.accent}}
 .monthnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.monthnav>div{text-align:center;display:grid}
+.monthnav>div,.monthnav .monthopen{text-align:center;display:grid}
+.monthnav .monthopen{flex:1;width:auto;height:auto;min-height:0;padding:4px 6px;border:0;border-radius:12px;background:none;color:${t.ink}}
+.monthnav .monthopen:active{background:${t.ink}0F}
+.mplus{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:4px;border-radius:50%;vertical-align:2px;
+  font-size:17px;font-weight:700;line-height:1;background:${t.accentSoft};color:${t.accent}}
+.catrow.organizing{gap:8px}
+.ordbtn{flex:0 0 auto;width:44px;height:40px;min-height:0;padding:0;border-radius:12px;display:grid;place-items:center;
+  border:1px solid ${t.ink}24;background:${t.paper};color:${t.ink}}
+.ordbtn:disabled{opacity:.3}
 .monthnav b{font-size:20px;font-weight:800}
 .monthnav small{font-size:13px;color:${t.ink70}}
 .monthnav button{width:42px;height:42px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;
@@ -2730,11 +2738,12 @@ function viewBudget(){
     </div></div>`:''}<div class="card monthcard"><div class="inner" style="padding-top:12px">
     <div class="monthnav">
       <button data-act="budmonth" data-v="-1" ${ym<=backTo?'disabled':''} aria-label="Previous month">${I.left}</button>
-      <div><b>${esc(ymName(ym))}</b><small>${money(mTotal)} spent</small></div>
+      <button class="monthopen" data-act="monthopen" aria-expanded="${budMonthOpen}" aria-label="${budMonthOpen?'Hide':'Show'} this month by category">
+        <b>${esc(ymName(ym))} <span class="mplus">${budMonthOpen?'−':'+'}</span></b><small>${money(mTotal)} spent</small></button>
       <button data-act="budmonth" data-v="1" ${ym>=budMaxYm()?'disabled':''} aria-label="Next month">${I.right}</button>
     </div>
     ${mPrev?`<p class="trend" style="margin:4px 0 0;text-align:center">${esc(ymName(lastYm))}: ${money(mPrev)}${mTotal!==mPrev?` — ${mTotal>mPrev?'up':'down'} ${money(Math.abs(mTotal-mPrev))}`:''}</p>`:''}
-    ${brk.length?`<div class="mbreak">${brk.map(x=>`<${x.id?`button data-act="line" data-id="${x.id}"`:'div'} class="mbrow">
+    ${!budMonthOpen?'':brk.length?`<div class="mbreak">${brk.map(x=>`<${x.id?`button data-act="line" data-id="${x.id}"`:'div'} class="mbrow">
         <span class="mbname">${esc(x.name)}<i>${x.n===1?'1 entry':x.n+' entries'}</i></span>
         <span class="mbamt">${money(x.amt)}<i>${Math.round(x.amt/mTotal*100)}%</i></span>
         <span class="mbbar"><i style="width:${(x.amt/brk[0].amt*100).toFixed(1)}%"></i></span>
@@ -2753,17 +2762,24 @@ function viewBudget(){
   <section class="grp zone"><h3>Categories<span>${y}${sumIn(all,y-1)?' · '+(y-1)+' for comparison':''}</span></h3>
     ${cats.map(({l,items})=>{ const ty=sumIn(items,y), ly=sumIn(items,y-1);
       const yi=items.filter(it=>yearOf(it.date)===y).sort((p,q)=>(q.date||'').localeCompare(p.date||'')), last=yi[0];
+      if(catOrganize){ const k=S.budget.findIndex(x=>x.id===l.id);
+        return `<div class="catrow organizing">
+          <span class="cattext"><b>${esc(l.name)}</b></span>
+          <button class="ordbtn" data-act="catmove" data-id="${l.id}" data-v="-1" ${k<=0?'disabled':''} aria-label="Move ${esc(l.name)} up"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg></button>
+          <button class="ordbtn" data-act="catmove" data-id="${l.id}" data-v="1" ${k>=S.budget.length-1?'disabled':''} aria-label="Move ${esc(l.name)} down"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button></div>`; }
       return `<button class="catrow" data-act="line" data-id="${l.id}">
         <span class="cattext"><b>${esc(l.name)}</b>
           <i>${yi.length?yi.length+(yi.length===1?' entry':' entries')+' · last '+money(last.amt)+' on '+esc(fmtDate(last.date)):'Nothing yet in '+y}</i></span>
         <span class="catamt"><b>${money(ty)}</b>${ly?`<i>${y-1}: ${money(ly)}</i>`:''}</span>
         <span class="achev">${I.right}</span></button>`; }).join('')}
-    ${looseY?`<div class="catrow" style="cursor:default">
+    ${looseY&&!catOrganize?`<div class="catrow" style="cursor:default">
         <span class="cattext"><b style="color:var(--ink70)">No category</b><i>Records, purchases or fuel not put in a category — pick one when you edit them</i></span>
         <span class="catamt"><b>${money(looseY)}</b></span></div>`:''}
-    <div class="btns h"><button class="btn dash" data-act="newline">${I.plus} Add a category</button>
-      ${spentY?`<button class="btn" data-act="csv" data-v="spend:${y}">${I.grid} Copy ${y} for a spreadsheet</button>`:''}</div>
-    ${suggest.length?`<div class="chips" style="margin-top:10px;flex-wrap:wrap">${suggest.map(n=>`<button class="chip" data-act="quickcat" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}
+    ${catOrganize?`<button class="btn solid" style="margin-top:10px" data-act="catorganize">Done organizing</button>`
+    :`<div class="btns h"><button class="btn dash" data-act="newline">${I.plus} Add a category</button>
+      ${lines.length>1?`<button class="btn" data-act="catorganize"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg> Organize</button>`:''}
+      ${spentY?`<button class="btn" data-act="csv" data-v="spend:${y}">${I.grid} Copy ${y} for a spreadsheet</button>`:''}</div>`}
+    ${suggest.length&&!catOrganize?`<div class="chips" style="margin-top:10px;flex-wrap:wrap">${suggest.map(n=>`<button class="chip" data-act="quickcat" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}
   </section>
 
   <section class="grp zone"><h3>Things to buy<span>${open.length?money(open.reduce((s,b)=>s+num(b.est),0))+' to go':'nothing waiting'}</span></h3>
@@ -3485,10 +3501,6 @@ function modalHTML(){
             <div class="t">${r.remind?'Reminder':money(num(r.amount))} · ${esc(repeatWordM(r.every).toLowerCase())}</div>
             <div class="m">${esc([nx?'next '+fmtDate(isoOf(nx)):'',r.note].filter(Boolean).join(' · '))}</div></div>
             <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px;min-height:38px" data-act="stoprecur" data-id="${r.id}" data-line="${l.id}">Stop</button></div>`; }).join('')}`:''}
-      <div class="btns h">
-        <button class="btn" data-act="catmove" data-id="${l.id}" data-v="-1" ${S.budget[0]&&S.budget[0].id===l.id?'disabled':''}>${I.left} Move up</button>
-        <button class="btn" data-act="catmove" data-id="${l.id}" data-v="1" ${S.budget[S.budget.length-1]&&S.budget[S.budget.length-1].id===l.id?'disabled':''}>Move down ${I.right}</button>
-      </div>
       <button class="btn" data-act="lineedit" data-id="${l.id}">${I.pencil} Rename this category</button>
       <button class="btn danger big" data-act="dellinesheet" data-id="${l.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this category'}</button>`);
   }
@@ -4051,7 +4063,7 @@ document.addEventListener('click',async e=>{
     const n=list.findIndex(x=>x.id===cur.id)+(+btn.dataset.d);
     if(n<0||n>=list.length) return;
     modal.id=list[n].id; await loadPhotos([modal.id]); render(); return; }
-  if(a==='tab'){ tab=v; editing=false; searchOpen=false; q=''; openAlbum=null; closeModal(); render(); return; }
+  if(a==='tab'){ tab=v; editing=false; searchOpen=false; q=''; openAlbum=null; catOrganize=false; closeModal(); render(); return; }
   if(a==='settings'){ if(tab==='settings'){ tab=VIEWS[prevTab]&&prevTab!=='settings'?prevTab:'seasons'; } else { prevTab=tab; tab='settings'; }
     editing=false; closeModal(); render(); return; }
   if(a==='edit'){ editing=!editing; render(); return; }
@@ -4481,6 +4493,8 @@ document.addEventListener('click',async e=>{
     const r=l.recurring.find(x=>x.id===id), d=ruleDates(r,new Date(today0().getTime()+60*DAY)).find(x=>isoOf(x).slice(0,7)===v);
     modalAt=Date.now(); modal={kind:'spend',isNew:true,draft:{id:uid(),lineId:l.id,amount:'',date:d?isoOf(d):isoOf(new Date()),note:r.note||'',every:'0',recurFor:r.id}};
     if(tab!=='budget'){ tab='budget'; } render(); return; }
+  if(a==='monthopen'){ budMonthOpen=!budMonthOpen; render(); return; }
+  if(a==='catorganize'){ catOrganize=!catOrganize; render(); return; }
   if(a==='budmonth'){ const ym=ymAdd(budMonth||ymNow(),+v); if(ym>budMaxYm()) return; budMonth=ym; render(); return; }   // Budget keeps its own month; other tabs' year is untouched
   if(a==='budmonthset'){ if(v>budMaxYm()) return; budMonth=v; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
   if(a==='catmove'){ const arr=S.budget; arr.forEach((l,k)=>l._o=k);
