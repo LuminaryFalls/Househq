@@ -315,7 +315,7 @@ function seed(){
       specs:e.specs.map(([k,v])=>({id:uid(),k,v})),
       checks:e.checks.map(([title,freq])=>({id:uid(),title,freq}))})),
     equipDone:{},
-    vehicles:[], vehicleDone:{}, pets:[], inventory:[], bills:[],
+    vehicles:[], vehicleDone:{}, pets:[], inventory:[], misc:[], bills:[],
     specs:[['Furnace filter',''],['Humidifier pad',''],['Well sediment filter',''],['Water heater element',''],['Fridge water filter','']].map(([k,v])=>({id:uid(),k,v})),
     logs:[], photos:[],
     contacts:[],
@@ -593,7 +593,8 @@ const online=()=>navigator.onLine!==false;
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); if(v===null) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){ return null; } };
 const SYNC_KEY='hq:synced', PEND_KEY='hq:pendingphotos', PENDF_KEY='hq:pendingfiles', PREJOIN_KEY='hq:prejoin';
 let prejoin=null;   // what was on this phone before it joined a shared house
-const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','logs','photos','contacts','specs','budget','bills','buy','files','keyDates','fuel'];
+const NEWER_COLS=['bills','misc'];   // added after the first release: an older published ruleset won't list them
+const SHARED_COLS=['tasks','yearly','equipment','vehicles','pets','inventory','misc','logs','photos','contacts','specs','budget','bills','buy','files','keyDates','fuel'];
 const CHECK_MAPS=['yearlyDone','equipDone','vehicleDone'];
 const META_FIELDS=['propertyName','closedPhases','lastBackup','createdAt','fuelTank'];
 const clone=o=>JSON.parse(JSON.stringify(o));
@@ -828,11 +829,11 @@ const cloud={
         this.snapshot();
       }
     }catch(e){
-      const {ops}=diffState(S,this.lastSynced), rest=ops.filter(o=>o.col!=='bills');
+      const {ops}=diffState(S,this.lastSynced), rest=ops.filter(o=>!NEWER_COLS.includes(o.col));
       if(/permission-denied/.test((e&&(e.code||e.message))+'')&&rest.length<ops.length){
-        // the published rules don't allow bills yet: send everything else, and keep the bills here until they do
+        // the published rules don't list the newer collections yet: send everything else, keep those here until they do
         try{ if(rest.length){ await this.commit(rest,null); for(const op of rest) applyToSynced(this.lastSynced,op); await store.set(SYNC_KEY,JSON.stringify(this.lastSynced)); } }catch(e2){}
-        setNote('Bills are saved on this phone but can\'t sync yet — publish the updated Firestore rules.');
+        setNote("Newer items (bills, misc) are saved on this phone but can't sync yet — publish the updated Firestore rules.");
       } else { this.err=friendlyErr(e); oops('sending changes',e); setNote('Sync hiccup: '+this.err); }
     }
     this.pushing=false;
@@ -841,8 +842,13 @@ const cloud={
   listen(){
     const FB=this.FB;
     const failed=e=>{ if(this.status!=='on') return; this.stopListening(); this.status='error'; this.err=friendlyErr(e); oops('listening',e); this.paint(); };
+    // A newer collection the published rules don't list yet is refused. That must not stop everything else syncing.
+    const behind=e=>{ if(this.status!=='on') return;
+      if(/permission-denied/.test((e&&(e.code||e.message))+'')){ if(!this.rulesNote){ this.rulesNote=true;
+        setNote("Some newer items can't sync yet — publish the updated Firestore rules, then reopen the app."); } }
+      else failed(e); };
     for(const c of [...SHARED_COLS,...CHECK_MAPS])
-      this.unsubs.push(FB.onSnapshot(this.colRef(c),snap=>this.onCol(c,snap.docs.map(d=>({id:d.id,data:d.data()}))),failed));
+      this.unsubs.push(FB.onSnapshot(this.colRef(c),snap=>this.onCol(c,snap.docs.map(d=>({id:d.id,data:d.data()}))),NEWER_COLS.includes(c)?behind:failed));
     this.unsubs.push(FB.onSnapshot(this.ref('meta'),snap=>this.onMeta(snap.exists()?snap.data():null),failed));
   },
   stopListening(){ for(const u of this.unsubs){ try{ u(); }catch(e){} } this.unsubs=[]; },
@@ -1068,6 +1074,8 @@ const FILE_CATS=['Plans','Budget','Papers'];
 /* Files can also be pinned to one piece of equipment, a vehicle or a pet, with a
    category of "eq:<id>" / "veh:<id>" / "pet:<id>". This turns that into something readable. */
 function catLabel(cat){
+  const mm=/^misc:(.+)$/.exec(cat||'');
+  if(mm){ const f=(S.misc||[]).find(x=>x.id===mm[1]); return f?'Misc: '+(f.name||'unnamed'):''; }
   const bm=/^bill:(.+)$/.exec(cat||'');
   if(bm){ const e=(S.bills||[]).find(x=>x.id===bm[1]); if(!e) return '';
     return 'Bill: '+((lineOf(e.lineId)||{}).name||'Bill')+(num(e.amount)?' '+money(num(e.amount)):'')+(e.date?' · '+fmtDate(e.date):''); }
@@ -1079,7 +1087,7 @@ function catLabel(cat){
   const list=m[1]==='eq'?(S.equipment||[]):m[1]==='veh'?(S.vehicles||[]):(S.pets||[]);
   const item=list.find(x=>x.id===m[2]);
   if(!item) return '';
-  const pre=m[1]==='eq'?'Equipment: ':m[1]==='veh'?'Vehicle: ':'Pet: ';
+  const pre=m[1]==='eq'?(item.cat==='appliance'?'Appliance: ':'Equipment: '):m[1]==='veh'?'Vehicle: ':'Pet: ';
   return pre+(item.name||'unnamed');
 }
 const hasFiles=cat=>(S.files||[]).some(f=>f.cat===cat);
@@ -1087,7 +1095,7 @@ const hasFiles=cat=>(S.files||[]).some(f=>f.cat===cat);
    Returns a function that puts it back (for Undo). */
 function releaseFiles(cat){ const moved=(S.files||[]).filter(f=>f.cat===cat); moved.forEach(f=>f.cat='Papers'); return ()=>moved.forEach(f=>f.cat=cat); }
 /* The sheet a file sheet should come back to: a bill, a fuel delivery or a prepay. */
-const sheetBack=()=>modal&&['spend','fuel','prepay'].includes(modal.kind)?modal:null;
+const sheetBack=()=>modal&&['spend','fuel','prepay','misc'].includes(modal.kind)?modal:null;
 const fileCache={};
 const prettySize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const isSheet=f=>/sheet|excel|csv|numbers/i.test(f.type||'')||/\.(xlsx?|xlsm|csv|numbers)$/i.test(f.name||'');
@@ -1348,7 +1356,7 @@ function recentChanges(n){
     const veh=(S.vehicles||[]).find(z=>z.id===vid), c=veh&&veh.checks.find(z=>z.id===cid);
     if(c) push(t.at,t.by,'ticked '+c.title+' on the '+veh.name.toLowerCase()); }
   (S.tasks||[]).forEach(t=>{ if(t.done&&t.doneAt) push(t.doneAt,t.doneBy,'finished '+t.title); });
-  (S.inventory||[]).forEach(x=>push(x.at,x.by,'added '+(x.title||'an item')+' to the inventory'));
+  (S.misc||[]).forEach(x=>push(x.at,x.by,'added '+(x.name||'something')+' to Misc'));
   (S.pets||[]).forEach(p=>push(p.addedAt,p.addedBy,'added '+(p.name||'a pet')+' to Pets'));
   for(const kind of Object.keys(OWNER_KINDS)) for(const o of OWNER_KINDS[kind].list()) (o.dues||[]).forEach(du=>{
     if(du.doneTs) push(du.doneTs,du.doneBy,'marked '+(du.title||'a date')+' done'+(o.name?' for '+o.name:'')); });
@@ -2293,7 +2301,7 @@ function searchAll(ql){
     const parts=(e.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(e.checks||[]).map(c=>c.title).join(' ');
     if(has(e.name,e.make,e.model,e.serial,parts,checks,e.notes,(e.dues||[]).map(d=>d.title).join(' ')))
-      add('Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
+      add(e.cat==='appliance'?'Appliances':'Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
   (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v,sp.note))
     add('Sizes',sp.k||'Unnamed',[sp.v],'tab','', 'house'); });
@@ -2312,8 +2320,8 @@ function searchAll(ql){
     if(has(pet.name,pet.breed,parts,pet.vetName,pet.vetPhone,(pet.dues||[]).map(d=>d.title).join(' ')))
       add('Pets',pet.name,[pet.breed,pet.vetName],'petjump','',pet.id);
   });
-  (S.inventory||[]).forEach(x=>{ if(has(x.title,x.room,x.serial,x.note))
-    add('Inventory',x.title||'Unnamed item',[x.room,num(x.value)?money(num(x.value)):''],'inv',x.id); });
+  (S.misc||[]).forEach(x=>{ if(has(x.name,x.kind,x.room,x.brand,x.color,x.code,x.details,x.store,x.left))
+    add('Misc',x.name||'Unnamed',[x.room,x.kind,[x.brand,x.color].filter(Boolean).join(' '),x.code],'misc',x.id); });
   (S.fuel||[]).forEach(f=>{ if(has(f.vendor,f.note,f.date))
     add('Fuel',fmtDate(f.date),[isPrepay(f)?'prepay '+money(num(f.amount)):isReading(f)?'gauge '+num(f.pct)+'%':f.gallons?f.gallons+' gal':'',f.vendor,f.note],
       isPrepay(f)?'prepay':isReading(f)?'fuelread':'fuel',f.id); });
@@ -2525,6 +2533,20 @@ function viewPhotos(){
 /* Rooms are the main albums: always listed, even before they have a photo. */
 const ROOMS=['Kitchen','Bathroom','Bedroom','Hobby room','Workout room','Living room','Dining room','Mudroom','Garage','Post frame'];
 const ROOM_KEYS=ROOMS.map(r=>r.toLowerCase());
+/* ---------- Misc: paint, flooring, blinds and the other small things that aren't equipment or appliances ---------- */
+const MISC_KINDS=['Paint','Flooring','Tile','Blinds & shades','Trim & doors','Fixtures & hardware','Belongings','Other'];
+const MISC_ROOMS=[...ROOMS,'Whole house','Outside'];
+const miscRank=r=>{ const i=MISC_ROOMS.findIndex(x=>x.toLowerCase()===(r||'').trim().toLowerCase()); return i<0?MISC_ROOMS.length:i; };
+const miscSorted=()=>(S.misc||[]).slice().sort((a,b)=>miscRank(a.room)-miscRank(b.room)
+  ||(a.room||'').toLowerCase().localeCompare((b.room||'').toLowerCase())||(a.name||'').localeCompare(b.name||''));
+const miscHint=k=>({'Paint':'e.g. 7008 Alabaster — base and tint formula','Flooring':'e.g. item or style number','Tile':'e.g. item number and grout color',
+  'Blinds & shades':'e.g. size and model number','Trim & doors':'e.g. profile or door model','Fixtures & hardware':'e.g. model and finish',
+  'Belongings':'e.g. serial or model number'}[k]||'Color number, item number, model or serial');
+const miscNameHint=k=>({'Paint':'Living room walls','Flooring':'Main floor planks','Tile':'Bathroom floor tile','Blinds & shades':'Bedroom blinds',
+  'Trim & doors':'Interior trim','Fixtures & hardware':'Kitchen faucet','Belongings':'Wedding ring'}[k]||'Living room walls');
+const miscRoomOptions=cur=>{ const c=(cur||'').trim(), list=[...MISC_ROOMS];
+  if(c&&!list.some(r=>r.toLowerCase()===c.toLowerCase())) list.push(c);   // a room typed in the old inventory is kept
+  return '<option value="">No room</option>'+list.map(r=>`<option value="${esc(r)}" ${r.toLowerCase()===c.toLowerCase()?'selected':''}>${esc(r)}</option>`).join(''); };
 /* Every album, in order: Unsorted (if any), the rooms, then albums the app made (pets, sizes…). */
 function allAlbums(){
   const groups=photoGroups(), byKey=new Map(groups.map(g=>[g.key,g]));
@@ -2617,6 +2639,22 @@ function migrateBills(st){
     l.entries=[];
   }
   return n;
+}
+/* The old Home inventory now lives in Misc, with every field kept. Ids stay the same, so it is safe to
+   run on both phones and again whenever an older copy syncs in. They default to NOT going in the handoff
+   pack, since they were belongings rather than part of the house. */
+function migrateInventory(st){
+  const inv=st.inventory||[]; if(!inv.length) return 0;
+  st.misc=st.misc||[];
+  for(const x of inv){
+    if(st.misc.some(m=>m.id===x.id)) continue;
+    st.misc.push({id:x.id,name:x.title||'',kind:'Belongings',room:x.room||'',brand:'',color:'',code:x.serial||'',details:x.note||'',
+      store:'',date:x.bought||'',left:'',value:x.value||'',stays:false,photos:[...(x.photos||[])],at:x.at,by:x.by});
+    for(const pid of (x.photos||[])){ const ph=(st.photos||[]).find(q=>q.id===pid);
+      if(ph&&/^inventory/i.test((ph.where||'').trim())) ph.where='Misc'; }   // their photos join the Misc album
+  }
+  st.inventory=[];
+  return inv.length;
 }
 const billsOf=lineId=>(S.bills||[]).filter(b=>b.lineId===lineId);
 const lineOf=id=>(S.budget||[]).find(l=>l.id===id);
@@ -2967,6 +3005,8 @@ function maintCardsHTML(cfg){
       ${open?`<div class="inner">
         <div class="fields" style="display:grid;gap:8px;margin-bottom:16px">
           <input data-act="${cfg.actField}" data-id="${e.id}" data-f="name" value="${esc(e.name)}" placeholder="Name">
+          ${cfg.kind==='eq'?`<label class="lbl" style="margin:0">Type<select data-act="eq" data-id="${e.id}" data-f="cat" data-rerender="1">
+            <option value="equipment" ${e.cat!=='appliance'?'selected':''}>Equipment</option><option value="appliance" ${e.cat==='appliance'?'selected':''}>Appliance</option></select></label>`:''}
           <div style="display:flex;gap:8px">
             <input data-act="${cfg.actField}" data-id="${e.id}" data-f="make" value="${esc(e.make)}" placeholder="Make">
             <input data-act="${cfg.actField}" data-id="${e.id}" data-f="model" value="${esc(e.model)}" placeholder="Model">
@@ -2980,7 +3020,7 @@ function maintCardsHTML(cfg){
           <input data-act="${cfg.actSpec}" data-id="${e.id}" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Size or part no.">
           ${editing?`<button class="icb" data-act="${cfg.actDelSpec}" data-id="${e.id}" data-sid="${s.id}" aria-label="Remove this part">${I.trash}</button>`:''}</div>`).join('')}
         ${e.specs.length?'':'<p class="hint" style="margin:4px 0">No part numbers yet.</p>'}
-        ${editing?`<button class="btn" data-act="${cfg.actAddSpec}" data-id="${e.id}">${I.plus} Add a size</button>`:''}
+        <button class="btn dash" style="margin-top:6px" data-act="${cfg.actAddSpec}" data-id="${e.id}">${I.plus} Add a size</button>
 
         <h3 style="font:700 17px system-ui;margin:18px 0 6px">Tune-up checks</h3>
         ${e.checks.map(c=>{
@@ -3002,7 +3042,7 @@ function maintCardsHTML(cfg){
             </div>
             ${editing?`<button class="icb" data-act="${cfg.actDelChk}" data-id="${e.id}" data-cid="${c.id}" aria-label="Remove this check">${I.trash}</button>`:''}</div>`;
         }).join('')}
-        ${editing?`<button class="btn" style="margin-top:10px" data-act="${cfg.actAddChk}" data-id="${e.id}">${I.plus} Add a check</button>`:''}
+        <button class="btn dash" style="margin-top:10px" data-act="${cfg.actAddChk}" data-id="${e.id}">${I.plus} Add a check</button>
 
         ${duesHTML(cfg.kind,e,cfg.dueBlurb)}
 
@@ -3066,7 +3106,7 @@ function petCardsHTML(){
           <input data-act="petspec" data-id="${pet.id}" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Bark Park, renews March">
           ${editing?`<button class="icb" data-act="delpetspec" data-id="${pet.id}" data-sid="${s.id}" aria-label="Remove">${I.trash}</button>`:''}</div>`).join('')}
         ${pet.specs.length?'':'<p class="hint" style="margin:4px 0">Nothing yet.</p>'}
-        ${editing?`<button class="btn" data-act="addpetspec" data-id="${pet.id}">${I.plus} Add a detail</button>`:''}
+        <button class="btn dash" style="margin-top:6px" data-act="addpetspec" data-id="${pet.id}">${I.plus} Add a detail</button>
 
         <h3 style="font:700 17px system-ui;margin:18px 0 6px">Photos</h3>
         ${pics.length?`<div class="pgrid">${pics.slice(0,6).map(p=>`<div class="pcell">
@@ -3089,6 +3129,27 @@ function petCardsHTML(){
     </div>`;
   }).join('') + `<button class="btn dash" style="margin-top:10px" data-act="addpet">${I.plus} Add a pet</button>`;
 }
+function miscHTML(){
+  const items=miscSorted(); let last=null;
+  const tot=items.reduce((a,x)=>a+num(x.value),0);
+  const rows=items.map(f=>{
+    const room=(f.room||'').trim()||'No room'; let head='';
+    if(room!==last){ last=room; head=`<h3 class="sub" style="margin:14px 0 2px">${esc(room)}</h3>`; }
+    const ph=(f.photos||[]).find(id=>(S.photos||[]).some(p=>p.id===id))||'', hasCode=(f.code||'').trim();
+    const main=hasCode?f.code:[f.brand,f.color].filter(Boolean).join(' · ');
+    const sub=[f.kind,hasCode?[f.brand,f.color].filter(Boolean).join(' '):'',f.left?'Left: '+f.left:'',num(f.value)?money(num(f.value)):''].filter(Boolean).join(' · ');
+    return head+`<button class="sizerow" data-act="misc" data-id="${f.id}">
+      <span class="spthumb ${ph?'':'add'}" ${ph?`data-thumb="${ph}"`:''}>${ph?(thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img):I.cam}</span>
+      <span class="sztext"><b>${esc(f.name)||'Unnamed'}</b>
+        <span class="szv">${main?esc(main):'<i>No details yet</i>'}</span>
+        ${sub?`<span class="szn">${esc(sub)}</span>`:''}</span>
+      <span class="achev">${I.right}</span></button>`;
+  }).join('');
+  return (tot?`<p class="trend" style="margin:0 0 4px">Listed value: ${money(tot)}</p>`:'')+rows
+    +(items.length?'':`<p class="hint" style="margin:8px 0">Nothing yet. Add the paint, flooring, tile and blinds you might need to match later, or any belongings you want on record.</p>`)
+    +`<div class="btns h"><button class="btn dash" data-act="newmisc">${I.plus} Add something</button>
+      ${items.length?`<button class="btn" data-act="csv" data-v="misc">${I.grid} Copy for a spreadsheet</button>`:''}</div>`;
+}
 function viewGear(){
   const y=S.activeYear, now=new Date().getFullYear(), years=budgetYears();
   const eTicks=S.equipment.reduce((n,e)=>n+e.checks.filter(c=>S.equipDone[e.id+':'+c.id+':'+y]).length,0);
@@ -3096,18 +3157,45 @@ function viewGear(){
   const vTicks=(S.vehicles||[]).reduce((n,e)=>n+e.checks.filter(c=>S.vehicleDone[e.id+':'+c.id+':'+y]).length,0);
   const vChecks=(S.vehicles||[]).reduce((n,e)=>n+e.checks.length,0);
   const ticks=eTicks+vTicks, checks=eChecks+vChecks;
+  const eqItems=(S.equipment||[]).filter(e=>e.cat!=='appliance'), appItems=(S.equipment||[]).filter(e=>e.cat==='appliance');
   return `<div style="display:flex;gap:8px;margin-bottom:12px;align-items:stretch">
     <div class="yearbar" style="flex:1;margin:0">
       <button data-act="year" data-v="${y-1}" ${y-1<Math.min(...years)?'disabled':''} aria-label="Previous year">${I.left}</button>
-      <div style="text-align:center"><b>${y}</b><small>${checks?ticks+' of '+checks+' tune-up checks':'vehicles, equipment, pets'}</small></div>
+      <div style="text-align:center"><b>${y}</b><small>${checks?ticks+' of '+checks+' tune-up checks':'equipment, appliances, pets, vehicles, misc'}</small></div>
       <button data-act="year" data-v="${y+1}" ${y+1>now?'disabled':''} aria-label="Next year">${I.right}</button>
     </div>
     <button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>
   </div>
 
   <section class="zone">
+    <h2 class="sec">Equipment${eqItems.length?` <em>${eqItems.length}</em>`:''}</h2>
+    <p class="hint">Mowers, tools, machines — tune-ups, part numbers, and what you did last time. Equipment stays with you, so it isn't in the handoff pack.</p>
+    ${maintCardsHTML({items:eqItems, done:S.equipDone||{}, y, openId:openEquip, noun:'equipment', addAlways:true,
+      actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
+      actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
+      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment', filePrefix:'eq:', kind:'eq',
+      dueBlurb:'A service contract, a filter subscription, anything with a date.'})}
+  </section>
+
+  <section class="zone">
+    <h2 class="sec">Appliances${appItems.length?` <em>${appItems.length}</em>`:''}</h2>
+    <p class="hint">Fridge, water heater, furnace, washer — model and serial numbers, filter sizes, warranties. These go in the handoff pack.</p>
+    ${maintCardsHTML({items:appItems, done:S.equipDone||{}, y, openId:openEquip, noun:'appliance', addAlways:true,
+      actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
+      actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
+      actDel:'delequip', actAddNew:'addappliance', serialLabel:'Serial number', addLabel:'Add an appliance', filePrefix:'eq:', kind:'eq',
+      dueBlurb:'A warranty end, a filter subscription, anything with a date.'})}
+  </section>
+
+  <section class="zone">
+    <h2 class="sec">Pets</h2>
+    <p class="hint">Vet visits, grooming, memberships and photos, all in one place per pet. Pets aren't in the handoff pack.</p>
+    ${petCardsHTML()}
+  </section>
+
+  <section class="zone">
     <h2 class="sec">Vehicles</h2>
-    <p class="hint">Oil changes, registration, tire size — whatever you'd want on hand before a road trip or a repair.</p>
+    <p class="hint">Oil changes, registration, tire size — whatever you'd want on hand before a road trip or a repair. Vehicles aren't in the handoff pack.</p>
     ${maintCardsHTML({items:S.vehicles||[], done:S.vehicleDone||{}, y, openId:openVehicle, noun:'vehicle', addAlways:true,
       actOpen:'vehicle', actField:'veh', actSpec:'vspec', actAddSpec:'addvspec', actDelSpec:'delvspec',
       actChk:'vchk', actAddChk:'addvchk', actDelChk:'delvchk', actToggle:'togglevehicle',
@@ -3116,19 +3204,9 @@ function viewGear(){
   </section>
 
   <section class="zone">
-    <h2 class="sec">Equipment</h2>
-    <p class="hint">Tune-ups, part numbers, and what you did last time. Tap Edit to add or remove a part, a check, or a machine.</p>
-    ${maintCardsHTML({items:S.equipment||[], done:S.equipDone||{}, y, openId:openEquip, noun:'equipment',
-      actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
-      actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
-      actDel:'delequip', actAddNew:'addequip', serialLabel:'Serial number', addLabel:'Add equipment', filePrefix:'eq:', kind:'eq',
-      dueBlurb:'A service contract, a filter subscription, anything with a date.'})}
-  </section>
-
-  <section class="zone">
-    <h2 class="sec">Pets</h2>
-    <p class="hint">Vet visits, grooming, memberships and photos, all in one place per pet.</p>
-    ${petCardsHTML()}
+    <h2 class="sec">Misc${(S.misc||[]).length?` <em>${S.misc.length}</em>`:''}</h2>
+    <p class="hint">Paint, flooring, blinds and other things that aren't equipment or appliances — plus belongings you'd list for insurance. Tap one to read it in full.</p>
+    ${miscHTML()}
   </section>`;
 }
 
@@ -3189,18 +3267,6 @@ function viewHouse(){
   <h3 class="sub">Papers</h3>
   ${filesSection('Papers','Nothing yet. The deed, the well report, warranties, manuals.')}</section>
 
-  <section class="zone"><h2 class="sec">Home inventory${(()=>{ const t=(S.inventory||[]).reduce((a,x)=>a+num(x.value),0);
-      return t?`<em>${money(t)} listed</em>`:''; })()}</h2>
-  <p class="hint">Valuables with a photo, what you paid and the serial number. If there's ever a fire or a break-in, this is what the insurance adjuster asks for.</p>
-  ${(S.inventory||[]).map(x=>`<div class="row">
-    <button class="body" data-act="inv" data-id="${x.id}">
-      <div class="t">${esc(x.title||'Unnamed item')}</div>
-      <div class="m">${[x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',(x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):''].filter(Boolean).map(esc).join(' · ')}</div>
-    </button></div>`).join('')}
-  ${(S.inventory||[]).length?'':'<p class="hint" style="margin:6px 0">Nothing listed yet.</p>'}
-  <div class="btns h"><button class="btn dash" data-act="newinv">${I.plus} Add an item</button>
-    ${(S.inventory||[]).length?`<button class="btn" data-act="csv" data-v="inventory">${I.grid} Copy for a spreadsheet</button>`:''}</div></section>
-
   <section class="zone"><h2 class="sec">Who to call</h2>
   ${S.contacts.map(c=>`<div class="row">
     <button class="body" data-act="contact" data-id="${c.id}">
@@ -3217,7 +3283,7 @@ function viewHouse(){
   ${S.logs.length?logHTML(S.logs,true):'<p class="hint">Nothing recorded yet. Every check, cleaning and service you log lands here in date order.</p>'}</section>
 
   <section class="zone"><h2 class="sec">Handoff pack</h2>
-  <p class="hint">One document with the key dates, part numbers, equipment, vehicles, pets, contacts, service history and photographs. Print it to a PDF for the insurance adjuster, the next owner, or a folder in the safe.</p>
+  <p class="hint">One document for the next owner: key dates, part numbers, appliances, paint and flooring, contacts, service history and photographs. Pets, vehicles and equipment are left out, since they don't go with the house. Print it to a PDF to hand over.</p>
   <button class="btn" data-act="handoff">${I.paper} Build the handoff pack</button></section>
 
   <section class="zone"><h2 class="sec">Recent changes</h2>
@@ -3308,6 +3374,7 @@ function cycleGearIcon(){
   setTimeout(()=>{ wrap.innerHTML=GEAR_ICONS[gearIconIdx]; wrap.style.opacity='1'; },160);
 }
 function render(){
+  if((S.inventory||[]).length&&migrateInventory(S)) saveSoon();   // an older phone sent inventory: fold it into Misc
   if(!VIEWS[tab]||(tab==='list'&&!setupOpen())) tab='seasons';
   applyTheme(); renderHeader();
   const searching=searchOpen&&q.trim();
@@ -3556,7 +3623,7 @@ function modalHTML(){
       <label class="lbl">Name<input data-m="name" value="${esc(d.name)}" placeholder="What is it"></label>
       ${link?`<label class="lbl">Web address<input data-m="url" value="${esc(d.url)}" placeholder="https://" inputmode="url" autocapitalize="none" spellcheck="false"></label>`:''}
       <label class="lbl">Where it belongs<select data-m="cat">${
-        (/^(eq|veh|pet|bill|fuel):/.test(d.cat||'')&&catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
+        (/^(eq|veh|pet|bill|fuel|misc):/.test(d.cat||'')&&catLabel(d.cat)?[[d.cat,catLabel(d.cat)]]:[]).concat(FILE_CATS.map(c=>[c,c]))
           .map(([val,lab])=>`<option value="${esc(val)}" ${d.cat===val?'selected':''}>${esc(lab)}</option>`).join('')}</select></label>
       <input data-m="note" value="${esc(d.note)}" placeholder="A note about it">
       <label class="lbl">Warranty or coverage ends <span style="font-weight:400;color:var(--ink70)">(optional)</span><input type="date" data-m="expires" value="${esc(d.expires||'')}"></label>
@@ -3590,23 +3657,36 @@ function modalHTML(){
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="delspecsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this size'}</button>`}`,true);
   }
-  if(modal.kind==='inv'){
-    const d=modal.draft;
-    return sheet(modal.isNew?'New item':'Edit item',`
-      <label class="lbl">What it is<input data-m="title" value="${esc(d.title)}" placeholder="TV, ring, table saw"></label>
+  if(modal.kind==='misc'){
+    const d=modal.draft, codeRows=Math.min(6,Math.max(2,Math.ceil(((d.code||'').length+1)/18)));
+    return sheet(modal.isNew?'Add something':(d.name||'Misc'),`
+      <label class="lbl">What it is<input data-m="name" value="${esc(d.name)}" placeholder="${esc(miscNameHint(d.kind))}"></label>
       <div style="display:flex;gap:8px">
-        <label class="lbl" style="flex:1">Room<input data-m="room" value="${esc(d.room)}" placeholder="Living room"></label>
-        <label class="lbl" style="flex:1">Value<input data-m="value" value="${esc(d.value)}" placeholder="$" inputmode="decimal"></label>
+        <label class="lbl" style="flex:1">Type<select data-m="kind"><option value="">Choose…</option>${MISC_KINDS.map(k=>`<option value="${esc(k)}" ${d.kind===k?'selected':''}>${esc(k)}</option>`).join('')}</select></label>
+        <label class="lbl" style="flex:1">Room<select data-m="room">${miscRoomOptions(d.room)}</select></label>
       </div>
       <div style="display:flex;gap:8px">
-        <label class="lbl" style="flex:1">Bought<input type="date" data-m="bought" value="${esc(d.bought)}"></label>
-        <label class="lbl" style="flex:1">Serial / model<input data-m="serial" value="${esc(d.serial)}"></label>
+        <label class="lbl" style="flex:1">Brand<input data-m="brand" value="${esc(d.brand)}" placeholder="Sherwin-Williams"></label>
+        <label class="lbl" style="flex:1">Color or style<input data-m="color" value="${esc(d.color)}" placeholder="Alabaster"></label>
       </div>
-      <input data-m="note" value="${esc(d.note)}" placeholder="Where you bought it, anything else">
+      <label class="lbl">Code, model or serial number<textarea data-m="code" rows="${codeRows}" class="specv-in" placeholder="${esc(miscHint(d.kind))}">${esc(d.code)}</textarea></label>
+      <button class="btn" data-act="copymisc">${I.doc} Copy the code</button>
+      <label class="lbl">Details<textarea data-m="details" rows="3" placeholder="Sheen, tint formula, size, finish, installer">${esc(d.details)}</textarea></label>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Bought at<input data-m="store" value="${esc(d.store)}" placeholder="Menards"></label>
+        <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
+      </div>
+      <div style="display:flex;gap:8px">
+        <label class="lbl" style="flex:1">Value<input data-m="value" value="${esc(d.value)}" inputmode="decimal" placeholder="$"></label>
+        <label class="lbl" style="flex:1">Left over<input data-m="left" value="${esc(d.left)}" placeholder="2 boxes in the garage"></label>
+      </div>
+      <label class="chk"><input type="checkbox" data-m="stays" ${d.stays!==false?'checked':''}> Stays with the house (shows in the handoff pack)</label>
       ${stripHTML(d.photos)}
-      <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Photo of the item or the receipt'}</button>
+      <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Add a photo of it or its label'}</button>
+      <h3 class="sub" style="margin:6px 0 0">Receipt or warranty</h3>
+      ${filesSection('misc:'+d.id,'Nothing attached. Upload the receipt, warranty or a spec sheet, or paste a link.')}
       <button class="btn solid" data-act="done">Done</button>
-      ${modal.isNew?'':`<button class="btn danger big" data-act="delinv" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this item'}</button>`}`,true);
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delmisc" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this'}</button>`}`,true);
   }
   if(modal.kind==='fuel'){
     const d=modal.draft, cost=fuelCost(d);
@@ -3875,11 +3955,11 @@ function commitDraft(){
     const rec={id:d.id,k:d.k||'',v:d.v||'',note:d.note||'',photo:d.photo||''};
     const i=S.specs.findIndex(x=>x.id===d.id);
     if(i>=0) S.specs[i]={...S.specs[i],...rec}; else if(has) S.specs.push(rec); else return;
-  }else if(modal.kind==='inv'){
-    const has=(d.title||'').trim()||num(d.value)||(d.photos&&d.photos.length);
+  }else if(modal.kind==='misc'){
+    const has=['name','brand','color','code','details','store','left'].some(k=>(d[k]||'').trim())||num(d.value)||(d.photos&&d.photos.length);
     const rec={...d,photos:[...(d.photos||[])]};
-    const i=(S.inventory=S.inventory||[]).findIndex(x=>x.id===d.id);
-    if(i>=0) S.inventory[i]=rec; else if(has) S.inventory.push(rec); else return;
+    const i=(S.misc=S.misc||[]).findIndex(x=>x.id===d.id);
+    if(i>=0) S.misc[i]=rec; else if(has) S.misc.push(rec); else return;
   }else if(modal.kind==='fileedit'){
     const i=S.files.findIndex(x=>x.id===d.id);
     if(!d.stored&&!(d.url||'').trim()&&!(d.name||'').trim()){ if(i>=0) S.files.splice(i,1); return; }
@@ -3969,7 +4049,7 @@ document.addEventListener('input',async e=>{
       modal.draft[el.dataset.m]=el.type==='checkbox'?el.checked:el.value;
       if(el.dataset.m==='season'){ if(!seasonMonths(el.value).includes(+modal.draft.month)) modal.draft.month=0; commitDraft(); render(); return; }
       commitDraft();
-      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))) render();   // live gallons and cost
+      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))||(modal.kind==='misc'&&el.dataset.m==='kind')) render();   // live gallons and cost
     } else modal[el.dataset.m]=el.value;
     return; }
   if(!a) return;
@@ -3979,7 +4059,7 @@ document.addEventListener('input',async e=>{
     S.photos.forEach(ph=>{ if(albumKeyOf(ph)===key) ph.where=name; });
     openAlbum=name.trim().toLowerCase(); saveSoon(); render(); return; }
   if(a==='spec'){ const s=S.specs.find(x=>x.id===el.dataset.sid); if(s){ s[el.dataset.f]=el.value; saveSoon(); } return; }
-  if(a==='eq'){ const q2=S.equipment.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); } return; }
+  if(a==='eq'){ const q2=S.equipment.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='espec'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), sp=q2&&q2.specs.find(x=>x.id===el.dataset.sid);
     if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='echk'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
@@ -4159,8 +4239,8 @@ document.addEventListener('click',async e=>{
         const md=modal.draft, pet=modal.kind==='log'&&(S.pets||[]).find(x=>x.id===md.refId);
         const spot=pet?'Pets'
           :modal.kind==='log'?'Service: '+(md.subject||'record')
-          :modal.kind==='inv'?'Inventory':'';
-        const pid=await addPhoto(f,{caption:md.title||md.subject||'',where:spot});
+          :modal.kind==='misc'?'Misc':'';
+        const pid=await addPhoto(f,{caption:md.title||md.subject||md.name||'',where:spot});
         if(pid&&pet) linkPet(pid,pet.id);
         if(pid && modal && modal.draft){ modal.draft.photos.push(pid); commitDraft(); }
       }
@@ -4175,7 +4255,7 @@ document.addEventListener('click',async e=>{
       closeModal(); modal=b||null; }
     const [ph]=S.photos.splice(i,1), data=photoCache[id], inline=S.photoData&&S.photoData[id];
     const refs=[];
-    [...S.tasks,...S.logs,...(S.inventory||[])].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
+    [...S.tasks,...S.logs,...(S.misc||[])].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
     const profOf=(S.pets||[]).filter(p=>p.photoId===id); profOf.forEach(p=>p.photoId='');
     const specOf=(S.specs||[]).filter(x=>x.photo===id); specOf.forEach(x=>x.photo='');
     if(S.photoData) delete S.photoData[id];
@@ -4229,6 +4309,8 @@ document.addEventListener('click',async e=>{
     Object.keys(S.equipDone).forEach(k=>{ if(k.startsWith(pre)){ keep[k]=S.equipDone[k]; delete S.equipDone[k]; } });
     deleted('\u201c'+(ck.title||'that check')+'\u201d',
       ()=>{ q2.checks.splice(i,0,ck); Object.assign(S.equipDone,keep); }); return; }
+  if(a==='addappliance'){ const e2={id:uid(),name:'New appliance',make:'',model:'',serial:'',notes:'',specs:[],checks:[],cat:'appliance'};
+    S.equipment.push(e2); openEquip=e2.id; render(); save(); return; }
   if(a==='addequip'){ const e2={id:uid(),name:'New equipment',make:'',model:'',serial:'',notes:'',specs:[],checks:[]};
     S.equipment.push(e2); openEquip=e2.id; render(); save(); return; }
   if(a==='delequip'){ const i=S.equipment.findIndex(x=>x.id===id); if(i<0) return;
@@ -4281,15 +4363,19 @@ document.addEventListener('click',async e=>{
       const pid=await addPhoto(files[0],{caption:sp.k||'Size',where:'Sizes'});
       if(pid){ sp.photo=pid; save(); } render(); }); return; }
   if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
-  if(a==='newinv'){ modalAt=Date.now(); modal={kind:'inv',isNew:true,draft:{id:uid(),title:'',room:'',value:'',bought:'',serial:'',note:'',photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
-  if(a==='inv'){ const x=(S.inventory||[]).find(z=>z.id===id); if(!x) return;
-    modalAt=Date.now(); modal={kind:'inv',draft:{...x,photos:[...(x.photos||[])]}}; render(); return; }
-  if(a==='delinv'){
-    if(modal&&modal.kind==='inv'&&!modal.confirm){ modal.confirm=true; render(); return; }
-    const i=(S.inventory||[]).findIndex(x=>x.id===id); if(i<0) return;
-    if(modal&&modal.kind==='inv') modal=null;   // drop the sheet without committing, or it writes the item back
-    const [x]=S.inventory.splice(i,1);
-    deleted(x.title||'that item',()=>S.inventory.splice(i,0,x)); return; }
+  if(a==='newmisc'){ modalAt=Date.now(); modal={kind:'misc',isNew:true,draft:{id:uid(),name:'',kind:'',room:'',brand:'',color:'',code:'',details:'',store:'',date:'',left:'',value:'',stays:true,photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
+  if(a==='misc'){ const x=(S.misc||[]).find(z=>z.id===id); if(!x) return;
+    modalAt=Date.now(); modal={kind:'misc',draft:{kind:'',room:'',brand:'',color:'',code:'',details:'',store:'',date:'',left:'',value:'',...x,photos:[...(x.photos||[])]}}; render(); return; }
+  if(a==='copymisc'){ const v=((modal&&modal.draft&&modal.draft.code)||'').trim();
+    if(!v){ setNote('Nothing to copy yet.'); return; }
+    try{ await navigator.clipboard.writeText(v); setNote('Copied: '+v,'ok'); }catch(e){ setNote('Copying was blocked here — press and hold the code to copy it.'); }
+    return; }
+  if(a==='delmisc'){
+    if(modal&&modal.kind==='misc'&&!modal.confirm){ modal.confirm=true; render(); return; }
+    const i=(S.misc||[]).findIndex(x=>x.id===id); if(i<0) return;
+    modal=null;   // drop the sheet without committing, or it writes the item back
+    const [x]=S.misc.splice(i,1), kept=releaseFiles('misc:'+x.id);
+    deleted(x.name||'that item',()=>{ S.misc.splice(i,0,x); kept(); }); return; }
   if(a==='duedone'){ const o=ownerOf(btn.dataset.kind,id), du=o&&(o.dues||[]).find(x=>x.id===btn.dataset.did); if(!du) return;
     const m=+du.every||0;
     lastDueDone={kind:btn.dataset.kind,oid:id,did:du.id,prev:{date:du.date,doneAt:du.doneAt,doneBy:du.doneBy,doneTs:du.doneTs}};
@@ -4638,7 +4724,7 @@ function saveFile(text,name,type){
    so a restore can be checked over before it replaces what is here. */
 function normalize(st){
   if(!st||typeof st!=='object') throw new Error('not a House HQ state');
-  for(const k of ['tasks','yearly','equipment','vehicles','pets','inventory','specs','logs','photos','contacts','budget','bills','buy','files','keyDates','fuel'])
+  for(const k of ['tasks','yearly','equipment','vehicles','pets','inventory','misc','specs','logs','photos','contacts','budget','bills','buy','files','keyDates','fuel'])
     if(!Array.isArray(st[k])) st[k]=[];
   if(!st.keyDates.length) st.keyDates=keyDateSeed();
   st.tasks.forEach(t=>{ if(t.contactId===undefined) t.contactId=''; });
@@ -4722,29 +4808,17 @@ function buildHandoff(){
   const kd=(S.keyDates||[]).filter(k=>k.date).map(k=>{ const w=nextOccur(k);
     return [k.title,w?fmtDate(isoOf(w)):'',repeatWord(k.every),k.note||'']; });
   const sizes=(S.specs||[]).filter(sp=>(sp.k||'').trim()||(sp.v||'').trim()).map(sp=>[sp.k,[sp.v,sp.note].filter(x=>(x||'').trim()).join(' — ')]);
-  const gear=(S.equipment||[]).map(e=>`<h3>${esc(e.name)}</h3>
+  const gear=(S.equipment||[]).filter(e=>e.cat==='appliance').map(e=>`<h3>${esc(e.name)}</h3>
     <p class="sub">${esc([e.make,e.model].filter(Boolean).join(' '))}${e.serial?' · serial '+esc(e.serial):''}</p>
     ${hoTable((e.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
     ${(e.checks||[]).length?`<p class="sub">Tune-up: ${esc((e.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
     ${hoTable(duesRows(e))}
     ${(e.notes||'').trim()?`<p class="sub">Notes: ${esc(e.notes)}</p>`:''}`).join('');
-  const vehicles=(S.vehicles||[]).map(veh=>`<h3>${esc(veh.name)}</h3>
-    <p class="sub">${esc([veh.make,veh.model].filter(Boolean).join(' '))}${veh.serial?' · VIN '+esc(veh.serial):''}</p>
-    ${hoTable((veh.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
-    ${(veh.checks||[]).length?`<p class="sub">Maintenance: ${esc((veh.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
-    ${num(veh.odo)?`<p class="sub">Mileage: ${esc(num(veh.odo).toLocaleString())}</p>`:''}
-    ${hoTable(duesRows(veh))}
-    ${(veh.notes||'').trim()?`<p class="sub">Notes: ${esc(veh.notes)}</p>`:''}`).join('');
-  const pets=(S.pets||[]).map(pet=>`<h3>${esc(pet.name)}</h3>
-    <p class="sub">${esc(pet.breed||'')}</p>
-    ${hoTable([...(pet.vetName||pet.vetPhone?[['Vet',[pet.vetName,pet.vetPhone].filter(Boolean).join(' · ')]]:[]),
-      ...duesRows(pet),
-      ...(pet.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v])])}`).join('');
-  const invTotal=(S.inventory||[]).reduce((a,x)=>a+num(x.value),0);
-  const inventory=(S.inventory||[]).length?hoTable((S.inventory||[]).map(x=>[x.title||'Unnamed item',
-    [x.room,num(x.value)?money(num(x.value)):'',x.bought?'bought '+fmtDate(x.bought):'',x.serial?'serial '+x.serial:'',
-     (x.photos||[]).length?(x.photos.length===1?'1 photo':x.photos.length+' photos'):'',x.note].filter(Boolean).join(' · ')]))
-    +(invTotal?`<p class="sub">Total listed: ${money(invTotal)}</p>`:''):'';
+  // Pets, vehicles and equipment don't go with the house, so they (and their photos, records and papers) stay out
+  const awayIds=new Set([...(S.pets||[]),...(S.vehicles||[]),...(S.equipment||[]).filter(e=>e.cat!=='appliance')].map(x=>x.id));
+  const stays=(S.misc||[]).filter(x=>x.stays!==false);
+  const misc=stays.length?hoTable(miscSorted().filter(x=>x.stays!==false).map(x=>[x.name||'Unnamed',
+    [x.room,x.kind,[x.brand,x.color].filter(Boolean).join(' '),x.code,x.details,x.store?'from '+x.store:'',x.date?fmtDate(x.date):'',x.left?'left: '+x.left:''].filter(Boolean).join(' · ')])):'';
   // average per month over the last 12 months, counted from each category's first bill in that window
   const from=ymAdd(ymNow(),-11);
   const costs=(S.budget||[]).map(l=>{ const items=catItems(l).filter(it=>ymOf(it.date)>=from&&ymOf(it.date)<=ymNow());
@@ -4754,15 +4828,21 @@ function buildHandoff(){
       return [l.name,`about ${money(tot/months)} a month · ${money(tot)} over ${months} month${months===1?'':'s'}`]; }).filter(Boolean);
   const runCosts=costs.length?hoTable(costs)+'<p class="sub">From the bills and costs logged in House HQ over the last 12 months.</p>':'';
   const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
-  const logs=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+  const logs=(S.logs||[]).filter(l=>!awayIds.has(l.refId)).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
   const fuelRows=(S.fuel||[]).filter(f=>!isReading(f)&&!isPrepay(f)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(f=>[fmtDate(f.date),(f.gallons||'')+' gal',fuelCost(f)?money(fuelCost(f)):'',f.vendor||'']);
   const seasonal=hoTable((S.yearly||[]).map(x=>[x.title,[x.season,x.month?MONTHS[x.month-1]:'',x.freq].filter(Boolean).join(' · ')]));
-  const shots=(S.photos||[]).filter(p=>photoCache[p.id]).slice(0,30);
+  const hiddenPhotos=new Set([...(S.logs||[]).filter(l=>awayIds.has(l.refId)).flatMap(l=>l.photos||[]),
+    ...(S.misc||[]).filter(m=>m.stays===false).flatMap(m=>m.photos||[])]);
+  const shots=(S.photos||[]).filter(p=>photoCache[p.id]&&!hiddenPhotos.has(p.id)&&albumKeyOf(p)!=='pets'&&!p.petId).slice(0,30);
   const photos=shots.map(p=>`<figure><img src="${photoCache[p.id]}" alt="">
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
-  const files=hoTable((S.files||[]).map(f=>[f.name,[catLabel(f.cat)||f.cat,f.stored?prettySize(f.size):'link',f.note].filter(Boolean).join(' · ')]));
+  const fileAway=f=>{ const m=/^(eq|veh|pet|misc):(.+)$/.exec(f.cat||''); if(!m) return false;
+    if(m[1]==='veh'||m[1]==='pet') return true;
+    if(m[1]==='eq'){ const e=(S.equipment||[]).find(x=>x.id===m[2]); return !e||e.cat!=='appliance'; }
+    const x=(S.misc||[]).find(z=>z.id===m[2]); return !x||x.stays===false; };
+  const files=hoTable((S.files||[]).filter(f=>!fileAway(f)).map(f=>[f.name,[catLabel(f.cat)||f.cat,f.stored?prettySize(f.size):'link',f.note].filter(Boolean).join(' · ')]));
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(S.propertyName||'House')} — handoff</title>
@@ -4787,10 +4867,8 @@ function buildHandoff(){
 <p class="lede">Everything on record, printed ${esc(fmtDate(isoOf(new Date())))}.</p>
 ${hoSection('Key dates',hoTable(kd))}
 ${hoSection('Sizes and part numbers',hoTable(sizes))}
-${hoSection('Equipment',gear)}
-${hoSection('Vehicles',vehicles)}
-${hoSection('Pets',pets)}
-${hoSection('Home inventory',inventory)}
+${hoSection('Appliances',gear)}
+${hoSection('Paint, flooring and other things that stay',misc)}
 ${hoSection('Who to call',contacts)}
 ${hoSection('Service history',hoTable(logs))}
 ${hoSection('What it costs to run',runCosts)}
@@ -4813,9 +4891,9 @@ function tableFor(what){
     const note=it=>it.kind==='bill'?it.ref.note:it.kind==='buy'?it.ref.title:it.kind==='record'?(it.ref.subject||it.ref.what):(it.ref.vendor||it.ref.note);
     return [['Date','Category','Amount','Kind','Note'],...rows.map(it=>[it.date,it.cat,it.amt.toFixed(2),src[it.kind],note(it)||''])];
   }
-  if(what==='inventory')
-    return [['Item','Room','Value','Bought','Serial / model','Photos','Note'],
-      ...(S.inventory||[]).map(x=>[x.title,x.room,num(x.value)?num(x.value).toFixed(2):'',x.bought,x.serial,(x.photos||[]).length||'',x.note])];
+  if(what==='misc')
+    return [['Item','Type','Room','Brand','Color or style','Code / serial','Value','Bought at','Date','Left over','Details','In handoff pack','Photos'],
+      ...miscSorted().map(x=>[x.name,x.kind,x.room,x.brand,x.color,x.code,num(x.value)?num(x.value).toFixed(2):'',x.store,x.date,x.left,x.details,x.stays===false?'no':'yes',(x.photos||[]).length||''])];
   const rows=(S.fuel||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   return [['Date','Type','Gauge %','Gallons','Price a gallon','Total','Pre-season','Vendor','Budget line','Note'],
     ...rows.map(f=>isPrepay(f)?[f.date,'Prepay','','',f.price?num(f.price).toFixed(2):'',num(f.amount).toFixed(2),'',f.vendor,((S.budget||[]).find(l=>l.id===f.lineId)||{}).name||'',[f.until?'good through '+f.until:'',f.note].filter(Boolean).join('; ')]
@@ -5093,6 +5171,7 @@ async function mountViewer(){
   try{ S=raw?JSON.parse(raw):seed(); }catch(e){ S=seed(); }
   normalize(S);
   migrateBills(S);
+  migrateInventory(S);
   const lt=LS('hq:theme'); if(lt&&THEMES[lt]) S.theme=lt;
   if(!setupOpen()) tab='seasons';
   if(!store.saving()) setNote('This browser is not letting the app save. Download a backup before you close it.');
