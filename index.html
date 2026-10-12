@@ -233,7 +233,7 @@ const T_SEED=[
 ['Safety','Fire extinguishers: kitchen, utility room, garage','First week','','',''],
 ['Safety','Find and label the main water shutoff','First week','','','Utility closet or garage wall. Find it before you need it wet.'],
 ['Safety','Label the breaker panel and the fuel shutoff','First week','','',''],
-['Mechanical','Measure the furnace filter and save the size','First week','','','Put it under Sizes on the House tab, then buy a six-pack.'],
+['Mechanical','Measure the furnace filter and save the size','First week','','','Put it under Supplies to reorder on the House tab, then buy a six-pack.'],
 ['Admin','Photograph every appliance model and serial number','First week','','',''],
 ['Admin','Mail forwarded, address changed everywhere','First week','','','Bank, DMV, work, insurance, cards.'],
 ['Admin','Trash and recycling service signed up','First week','','',''],
@@ -316,7 +316,7 @@ function seed(){
       checks:e.checks.map(([title,freq])=>({id:uid(),title,freq}))})),
     equipDone:{},
     vehicles:[], vehicleDone:{}, pets:[], inventory:[], misc:[], bills:[],
-    specs:[['Furnace filter',''],['Humidifier pad',''],['Well sediment filter',''],['Water heater element',''],['Fridge water filter','']].map(([k,v])=>({id:uid(),k,v})),
+    specs:[['Furnace filter',''],['Humidifier pad',''],['Well sediment filter',''],['Water heater element',''],['Fridge water filter',''],['Water softener salt','']].map(([k,v])=>({id:uid(),k,v})),
     logs:[], photos:[],
     contacts:[],
     budget:budgetSeed(), buy:[], files:[],
@@ -2304,7 +2304,7 @@ function searchAll(ql){
       add(e.cat==='appliance'?'Appliances':'Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
   (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v,sp.note))
-    add('Sizes',sp.k||'Unnamed',[sp.v],'tab','', 'house'); });
+    add('Supplies',sp.k||'Unnamed',[sp.v],'tab','', 'house'); });
   (S.files||[]).forEach(f=>{ if(has(f.name,f.note,f.cat,catLabel(f.cat)))
     add('Files',f.name,[catLabel(f.cat)||f.cat,f.note],'openfile',f.id); });
   (S.keyDates||[]).forEach(k=>{ if(has(k.title,k.note)){
@@ -2489,7 +2489,7 @@ function viewPhotos(){
   const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
   if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
   if(g){
-    const pet=g.key==='pets'||g.key==='inventory', room=ROOM_KEYS.includes(g.key);
+    const pet=['pets','inventory','supplies','misc'].includes(g.key), room=ROOM_KEYS.includes(g.key);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
       <div style="flex:1"></div>
@@ -2571,8 +2571,8 @@ function photoGroups(){
 /* Which album a photo sits in. Older photos were tagged "Pet: Penny" or "Inventory: TV";
    those all read as the one Pets / Inventory album, so nothing needs re-saving. */
 const albumKeyOf=p=>{ const k=((p&&p.where)||'').trim().toLowerCase();
-  return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k; };
-const ALBUM_NAMES={pets:'Pets',inventory:'Inventory'};
+  return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k==='sizes'?'supplies':k; };
+const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc'};
 const linkPet=(photoId,petId)=>{ const ph=S.photos.find(x=>x.id===photoId); if(ph) ph.petId=petId; };
 function photosAt(key){ return S.photos.filter(p=>albumKeyOf(p)===key).slice().reverse(); } // oldest first
 /* A pet's own photos: linked by id, or (older photos) by their "Pet: name" tag. */
@@ -2655,6 +2655,13 @@ function migrateInventory(st){
   }
   st.inventory=[];
   return inv.length;
+}
+/* Wording the app used to have inside saved data. Safe to run on every load and on both phones. */
+function fixWording(st){
+  let n=0;
+  for(const t of (st.tasks||[])) if(t.notes&&t.notes.includes('under Sizes on the House tab')){
+    t.notes=t.notes.replace('under Sizes on the House tab','under Supplies to reorder on the House tab'); n++; }
+  return n;
 }
 const billsOf=lineId=>(S.bills||[]).filter(b=>b.lineId===lineId);
 const lineOf=id=>(S.budget||[]).find(l=>l.id===id);
@@ -3014,13 +3021,13 @@ function maintCardsHTML(cfg){
           <input data-act="${cfg.actField}" data-id="${e.id}" data-f="serial" value="${esc(e.serial)}" placeholder="${cfg.serialLabel}">
           ${cfg.miles?`<label class="lbl" style="margin:0">Current mileage<input data-act="${cfg.actField}" data-id="${e.id}" data-f="odo" data-rerender="1" value="${esc(e.odo||'')}" placeholder="e.g. 84,200" inputmode="numeric"></label>`:''}
         </div>
-        <h3 style="font:700 17px system-ui;margin:0 0 6px">Sizes and part numbers</h3>
+        <h3 style="font:700 17px system-ui;margin:0 0 6px">Parts and supplies</h3>
         ${e.specs.map(s=>`<div class="specrow">
           <input data-act="${cfg.actSpec}" data-id="${e.id}" data-sid="${s.id}" data-f="k" value="${esc(s.k)}" placeholder="What">
-          <input data-act="${cfg.actSpec}" data-id="${e.id}" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Size or part no.">
+          <input data-act="${cfg.actSpec}" data-id="${e.id}" data-sid="${s.id}" data-f="v" value="${esc(s.v)}" placeholder="Size, style or part no.">
           ${editing?`<button class="icb" data-act="${cfg.actDelSpec}" data-id="${e.id}" data-sid="${s.id}" aria-label="Remove this part">${I.trash}</button>`:''}</div>`).join('')}
-        ${e.specs.length?'':'<p class="hint" style="margin:4px 0">No part numbers yet.</p>'}
-        <button class="btn dash" style="margin-top:6px" data-act="${cfg.actAddSpec}" data-id="${e.id}">${I.plus} Add a size</button>
+        ${e.specs.length?'':'<p class="hint" style="margin:4px 0">Nothing listed yet.</p>'}
+        <button class="btn dash" style="margin-top:6px" data-act="${cfg.actAddSpec}" data-id="${e.id}">${I.plus} Add a part or supply</button>
 
         <h3 style="font:700 17px system-ui;margin:18px 0 6px">Tune-up checks</h3>
         ${e.checks.map(c=>{
@@ -3221,18 +3228,18 @@ function viewHouse(){
   <input data-act="pname" value="${esc(S.propertyName)}" placeholder="Name this place"></section>
 
   <section class="zone"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-    <h2 class="sec" style="margin:0;flex:1">Sizes</h2>
+    <h2 class="sec" style="margin:0;flex:1">Supplies to reorder</h2>
   </div>
-  <p class="hint">Filter sizes and part numbers, so you measure once. Tap one to read it in full, edit it, or add a photo.</p>
+  <p class="hint">Filters, salt, pads, bulbs — anything you buy again and again, with the exact size, style or part number so you pick up the right one. Tap one to read it in full, edit it, or add a photo.</p>
   ${S.specs.map(s=>{ const ph=s.photo&&S.photos.some(p=>p.id===s.photo)?s.photo:'';
     return `<button class="sizerow" data-act="specopen" data-sid="${s.id}">
     <span class="spthumb ${ph?'':'add'}" ${ph?`data-thumb="${ph}"`:''}>${ph?(thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img):I.cam}</span>
     <span class="sztext"><b>${esc(s.k)||'Unnamed'}</b>
-      <span class="szv">${(s.v||'').trim()?esc(s.v):'<i>No size yet</i>'}</span>
+      <span class="szv">${(s.v||'').trim()?esc(s.v):'<i>Nothing entered yet</i>'}</span>
       ${(s.note||'').trim()?`<span class="szn">${esc(s.note)}</span>`:''}</span>
     <span class="achev">${I.right}</span></button>`; }).join('')}
-  ${S.specs.length?'':'<p class="hint" style="margin-top:8px">Nothing measured yet.</p>'}
-  <button class="btn dash" style="margin-top:10px" data-act="addspec">${I.plus} Add a size</button></section>
+  ${S.specs.length?'':'<p class="hint" style="margin-top:8px">Nothing listed yet. Add the filters, salt and other refills you buy again.</p>'}
+  <button class="btn dash" style="margin-top:10px" data-act="addspec">${I.plus} Add a supply</button></section>
 
   <section class="zone"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
     <h2 class="sec" style="margin:0;flex:1">Key dates</h2>
@@ -3283,7 +3290,7 @@ function viewHouse(){
   ${S.logs.length?logHTML(S.logs,true):'<p class="hint">Nothing recorded yet. Every check, cleaning and service you log lands here in date order.</p>'}</section>
 
   <section class="zone"><h2 class="sec">Handoff pack</h2>
-  <p class="hint">One document for the next owner: key dates, part numbers, appliances, paint and flooring, contacts, service history and photographs. Pets, vehicles and equipment are left out, since they don't go with the house. Print it to a PDF to hand over.</p>
+  <p class="hint">One document for the next owner: key dates, supplies to reorder, appliances, paint and flooring, contacts, service history and photographs. Pets, vehicles and equipment are left out, since they don't go with the house. Print it to a PDF to hand over.</p>
   <button class="btn" data-act="handoff">${I.paper} Build the handoff pack</button></section>
 
   <section class="zone"><h2 class="sec">Recent changes</h2>
@@ -3644,18 +3651,18 @@ function modalHTML(){
       if(/blade|mower/.test(n)) return 'e.g. 21" blade, part no.';
       if(/oil/.test(n)) return 'e.g. SAE 30, 20 oz';
       if(/tire|wiper/.test(n)) return 'e.g. size or part no.';
-      return 'Size, model, or part number';
+      return 'Size, style or part number';
     };
     const d=modal.draft, ph=d.photo&&S.photos.some(p=>p.id===d.photo)?d.photo:'';
-    return sheet(modal.isNew?'New size':(d.k||'Size'),`
+    return sheet(modal.isNew?'New supply':(d.k||'Supply'),`
       <label class="lbl">What it is<input data-m="k" value="${esc(d.k)}" placeholder="Furnace filter"></label>
-      <label class="lbl">Size or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="${esc(specHint(d.k))}">${esc(d.v)}</textarea></label>
-      <button class="btn" data-act="copyspec">${I.doc} Copy the size or part number</button>
+      <label class="lbl">Size, style or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="${esc(specHint(d.k))}">${esc(d.v)}</textarea></label>
+      <button class="btn" data-act="copyspec">${I.doc} Copy it</button>
       <label class="lbl">Notes<textarea data-m="note" rows="3" placeholder="Where you buy it, pack size, when it was last changed">${esc(d.note||'')}</textarea></label>
       ${ph?`<button class="specphoto-big" data-act="viewphoto" data-id="${ph}" aria-label="Open the photo">${thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img}</button>`:''}
       <button class="btn" data-act="specsheetphoto">${I.cam} ${ph?'Replace the photo':'Add a photo'}</button>
       <button class="btn solid" data-act="done">Done</button>
-      ${modal.isNew?'':`<button class="btn danger big" data-act="delspecsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this size'}</button>`}`,true);
+      ${modal.isNew?'':`<button class="btn danger big" data-act="delspecsheet" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this supply'}</button>`}`,true);
   }
   if(modal.kind==='misc'){
     const d=modal.draft, codeRows=Math.min(6,Math.max(2,Math.ceil(((d.code||'').length+1)/18)));
@@ -4281,7 +4288,7 @@ document.addEventListener('click',async e=>{
     return; }
   if(a==='specsheetphoto'){ const md=modal&&modal.draft; if(!md) return;
     pick(async files=>{ if(!files[0]) return;
-      const pid=await addPhoto(files[0],{caption:md.k||'Size',where:'Sizes'});
+      const pid=await addPhoto(files[0],{caption:md.k||'Supply',where:'Supplies'});
       if(pid&&modal&&modal.draft===md){ md.photo=pid; commitDraft(); save(); }
       render(); }); return; }
   if(a==='delspecsheet'){
@@ -4289,10 +4296,10 @@ document.addEventListener('click',async e=>{
     const i=S.specs.findIndex(x=>x.id===id); if(i<0) return;
     if(modal&&modal.kind==='spec') modal=null;   // drop the sheet without committing, or it writes the size back
     const [sp]=S.specs.splice(i,1);
-    deleted(sp.k?'\u201c'+sp.k+'\u201d':'that size',()=>S.specs.splice(i,0,sp)); return; }
+    deleted(sp.k?'\u201c'+sp.k+'\u201d':'that item',()=>S.specs.splice(i,0,sp)); return; }
   if(a==='delspec'){ const i=S.specs.findIndex(x=>x.id===btn.dataset.sid); if(i<0) return;
     const [sp]=S.specs.splice(i,1);
-    deleted(sp.k?'\u201c'+sp.k+'\u201d':'that size',()=>S.specs.splice(i,0,sp)); return; }
+    deleted(sp.k?'\u201c'+sp.k+'\u201d':'that item',()=>S.specs.splice(i,0,sp)); return; }
   if(a==='addespec'){ const q2=S.equipment.find(x=>x.id===id); if(!q2) return;
     q2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
   if(a==='delespec'){ const q2=S.equipment.find(x=>x.id===id); if(!q2) return;
@@ -4360,7 +4367,7 @@ document.addEventListener('click',async e=>{
       render(); }); return; }
   if(a==='specphoto'){ const sp=S.specs.find(x=>x.id===btn.dataset.sid); if(!sp) return;
     pick(async files=>{ if(!files[0]) return;
-      const pid=await addPhoto(files[0],{caption:sp.k||'Size',where:'Sizes'});
+      const pid=await addPhoto(files[0],{caption:sp.k||'Supply',where:'Supplies'});
       if(pid){ sp.photo=pid; save(); } render(); }); return; }
   if(a==='upcomingmore'){ upcomingOpen=!upcomingOpen; render(); return; }
   if(a==='newmisc'){ modalAt=Date.now(); modal={kind:'misc',isNew:true,draft:{id:uid(),name:'',kind:'',room:'',brand:'',color:'',code:'',details:'',store:'',date:'',left:'',value:'',stays:true,photos:[],at:Date.now(),by:pref.who()}}; render(); return; }
@@ -4866,7 +4873,7 @@ function buildHandoff(){
 <h1>${esc(S.propertyName||'House')}</h1>
 <p class="lede">Everything on record, printed ${esc(fmtDate(isoOf(new Date())))}.</p>
 ${hoSection('Key dates',hoTable(kd))}
-${hoSection('Sizes and part numbers',hoTable(sizes))}
+${hoSection('Supplies to reorder',hoTable(sizes))}
 ${hoSection('Appliances',gear)}
 ${hoSection('Paint, flooring and other things that stay',misc)}
 ${hoSection('Who to call',contacts)}
@@ -5172,6 +5179,7 @@ async function mountViewer(){
   normalize(S);
   migrateBills(S);
   migrateInventory(S);
+  fixWording(S);
   const lt=LS('hq:theme'); if(lt&&THEMES[lt]) S.theme=lt;
   if(!setupOpen()) tab='seasons';
   if(!store.saving()) setNote('This browser is not letting the app save. Download a backup before you close it.');
