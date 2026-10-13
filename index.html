@@ -1150,7 +1150,7 @@ async function addFile(file,meta){
     return null;
   }
   fileCache[id]=payload;
-  const rec={id,name:file.name||'Untitled',type:file.type||'',size:file.size,
+  const rec={id,name:file.name||'Untitled',type:file.type||'',size:file.size,at:Date.now(),by:pref.who(),
     cat:meta.cat||'Papers',note:meta.note||'',url:'',stored:true,
     shared:file.size<=SHARE_MAX,
     chunks:Math.ceil((file.size*4/3+64)/CHUNK),
@@ -1381,6 +1381,10 @@ function recentChanges(n){
   (S.fuel||[]).forEach(f=>push(f.at,f.by,isPrepay(f)?'prepaid '+money(num(f.amount))+' for fuel'
     :isReading(f)?'logged the tank gauge at '+num(f.pct)+'%':'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
   (S.keyDates||[]).forEach(k=>push(k.at,k.by,'set the date for '+k.title));
+  (S.bills||[]).forEach(b=>{ if(!b.auto) push(b.at,b.by,'logged '+money(num(b.amount))+' for '+(((lineOf(b.lineId)||{}).name)||'a bill')+(b.note?' ('+b.note+')':'')); });
+  (S.buy||[]).forEach(b=>{ if(b.bought&&b.boughtAt) push(b.boughtAt,b.boughtBy,'bought '+(b.title||'something')); });
+  (S.contacts||[]).forEach(c=>push(c.at,c.by,'added '+(c.name||'a contact')+' to Who to call'));
+  (S.files||[]).forEach(f=>push(f.at,f.by,'added '+(f.name||'a file')));
   return out.sort((a,b)=>b.at-a.at).slice(0,n||10);
 }
 
@@ -2325,13 +2329,13 @@ function searchAll(ql){
   (S.tasks||[]).forEach(t=>{ if(has(t.title,t.cat,t.notes,t.when,t.contact))
     add(isClosed(t.when)?'Setup, closed out':'Setup',t.title,[t.when,t.cat,t.done?'done':''],'detail',t.id); });
   (S.yearly||[]).forEach(x=>{ if(has(x.title,x.cat,x.notes,x.freq,x.season))
-    add('Seasonal',x.title,[x.season,x.freq,x.cat],'yeardetail',x.id); });
+    add('Seasons',x.title,[x.season,x.freq,x.cat],'yeardetail',x.id); });
   (S.logs||[]).forEach(l=>{ if(has(l.subject,l.what,l.who,l.doc,l.cost))
-    add('Service records',l.subject||'Record',[fmtDate(l.date),l.who,l.what],'jump',l.refId||''); });
+    add('Service history',l.subject||'Record',[fmtDate(l.date),l.who,l.what],'jump',l.refId||''); });
   (S.photos||[]).forEach(p=>{ if(has(p.caption,p.where,p.note))
     add('Photos',p.caption||'Not named yet',[p.where,fmtDate(p.addedAt)],'viewphoto',p.id); });
   (S.contacts||[]).forEach(c=>{ if(has(c.name,c.role,c.note,c.phone))
-    add('Contacts',c.name,[c.role,c.phone,c.note],'contact',c.id); });
+    add('Who to call',c.name,[c.role,c.phone,c.note],'contact',c.id); });
   (S.equipment||[]).forEach(e=>{
     const parts=(e.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(e.checks||[]).map(c=>c.title).join(' ');
@@ -2339,7 +2343,7 @@ function searchAll(ql){
       add(e.cat==='appliance'?'Appliances':'Equipment',e.name,[[e.make,e.model].filter(Boolean).join(' '),e.serial],'equipjump','',e.id);
   });
   (S.specs||[]).forEach(sp=>{ if(has(sp.k,sp.v,sp.note))
-    add('Supplies',sp.k||'Unnamed',[sp.v],'specopen',sp.id); });
+    add('Supplies to reorder',sp.k||'Unnamed',[sp.v],'specopen',sp.id); });
   (S.files||[]).forEach(f=>{ if(has(f.name,f.note,f.cat,catLabel(f.cat)))
     add('Files',f.name,[catLabel(f.cat)||f.cat,f.note],'openfile',f.id); });
   (S.keyDates||[]).forEach(k=>{ if(has(k.title,k.note)){
@@ -2361,7 +2365,7 @@ function searchAll(ql){
     add('Fuel',fmtDate(f.date),[isPrepay(f)?'prepay '+money(num(f.amount)):isReading(f)?'gauge '+num(f.pct)+'%':f.gallons?f.gallons+' gal':'',f.vendor,f.note],
       isPrepay(f)?'prepay':isReading(f)?'fuelread':'fuel',f.id); });
   (S.budget||[]).forEach(l=>{ if(has(l.name))
-    add('Budget',l.name,[money(lineSpent(l,budYear()))+' in '+budYear()],'line',l.id); });
+    add('Categories',l.name,[money(lineSpent(l,budYear()))+' in '+budYear()],'line',l.id); });
   (S.bills||[]).forEach(e=>{ const l=lineOf(e.lineId); const amt=num(e.amount);
     if(has(e.note,l&&l.name,amt.toFixed(2),money(amt)))
       add('Bills',money(amt)+(l?' · '+l.name:''),[fmtDate(e.date),e.note],'spendedit',e.id); });
@@ -2524,7 +2528,7 @@ function viewPhotos(){
   const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
   if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
   if(g){
-    const pet=['pets','inventory','supplies','misc'].includes(g.key), room=ROOM_KEYS.includes(g.key);
+    const pet=['pets','inventory','supplies','misc','service'].includes(g.key), room=ROOM_KEYS.includes(g.key);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
       <div style="flex:1"></div>
@@ -2606,8 +2610,9 @@ function photoGroups(){
 /* Which album a photo sits in. Older photos were tagged "Pet: Penny" or "Inventory: TV";
    those all read as the one Pets / Inventory album, so nothing needs re-saving. */
 const albumKeyOf=p=>{ const k=((p&&p.where)||'').trim().toLowerCase();
-  return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k==='sizes'?'supplies':k; };
-const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc'};
+  return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k==='sizes'?'supplies'
+    :(k.startsWith('service: ')||k==='service records')?'service':k; };
+const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc',service:'Service records'};
 const linkPet=(photoId,petId)=>{ const ph=S.photos.find(x=>x.id===photoId); if(ph) ph.petId=petId; };
 function photosAt(key){ return S.photos.filter(p=>albumKeyOf(p)===key).slice().reverse(); } // oldest first
 /* A pet's own photos: linked by id, or (older photos) by their "Pet: name" tag. */
@@ -2774,10 +2779,6 @@ function budgetYears(){
   (S.fuel||[]).forEach(f=>set.add(yearOf(f.date)));
   return [...set].filter(Boolean).sort((a,b)=>a-b);
 }
-function bar(spent,planned){
-  const pct=planned>0?Math.min(100,Math.round(spent/planned*100)):0, over=planned>0&&spent>planned;
-  return `<div class="bar"><i style="width:${pct}%" class="${over?'over':''}"></i></div>`;
-}
 const budYear=()=>+(budMonth||ymNow()).slice(0,4);
 /* Furthest month you can page to: this month, or later if a bill is dated ahead. */
 function budMaxYm(){ const later=(S.bills||[]).map(b=>ymOf(b.date)).filter(m=>m&&m>ymNow()).sort().pop(); return later||ymNow(); }
@@ -2785,7 +2786,6 @@ function viewBudget(){
   if(migrateBills(S)+(!(modal&&modal.kind==='spend')?applyRecurring():0)) saveSoon();   // tidy and fill in bills before anything is totalled
   const y=budYear(), now=new Date().getFullYear(), years=budgetYears();
   const lines=S.budget||[], buys=S.buy||[];
-  const planned=lines.reduce((s,l)=>s+num(l.planned),0);
   const fromLogs=logSpent(y), loose=unassignedBuys(y), looseFuel=unassignedFuel(y);
   const spent=lines.reduce((s,l)=>s+lineSpent(l,y),0)+fromLogs+loose+looseFuel;
   const open=buys.filter(b=>!b.bought), got=buys.filter(b=>b.bought&&yearOf(b.bought)===y);
@@ -3546,7 +3546,7 @@ function modalHTML(){
     const back=`<button class="linkbtn" data-act="sharemode" data-v="" style="justify-self:center">Back</button>`;
     if(!mode){
       if(first) return sheet('Welcome',`
-        <p class="hint" style="margin:0">House HQ keeps the setup list, the seasonal round, the machines, the numbers and the paperwork for one house, and can share all of it with the other phone in the household.</p>
+        <p class="hint" style="margin:0">House HQ keeps one house in one place: the setup list, the seasonal round, upkeep for appliances, vehicles and pets, the bills, and the paperwork. It can share all of it with the other phone in the household.</p>
         ${who}${note}
         ${canShare?`<button class="btn solid" data-act="sharemode" data-v="new">${I.plus} Start a new house</button>
         <button class="btn" data-act="sharemode" data-v="join">${I.home} Join the house from the other phone</button>
@@ -3989,7 +3989,7 @@ function commitDraft(){
     const rid='r'+d.id; S.bills=S.bills||[];
     (S.budget||[]).forEach(o=>{ if(o!==l&&o.recurring){ const k=o.recurring.findIndex(r=>r.id===rid); if(k>=0) (l.recurring=l.recurring||[]).push(o.recurring.splice(k,1)[0]); } });
     const i=S.bills.findIndex(e=>e.id===d.id), prev=i>=0?S.bills[i]:{};
-    const rec={...prev,id:d.id,lineId:l.id,date:d.date,amount:num(d.amount),note:d.note||''};
+    const rec={...prev,id:d.id,lineId:l.id,date:d.date,amount:num(d.amount),note:d.note||'',at:prev.at||Date.now(),by:prev.by||pref.who()};
     if(d.recurFor) rec.recur=d.recurFor;   // logged for a "remind me" repeat
     if(!d.auto&&!d.recurFor){ l.recurring=l.recurring||[]; const ri=l.recurring.findIndex(r=>r.id===rid);
       if(+d.every>0){ const rule={id:rid,amount:num(d.amount),every:+d.every,start:d.date,note:d.note||'',remind:d.repeatMode==='remind'};
@@ -4300,7 +4300,7 @@ document.addEventListener('click',async e=>{
       for(const f of files){
         const md=modal.draft, pet=modal.kind==='log'&&(S.pets||[]).find(x=>x.id===md.refId);
         const spot=pet?'Pets'
-          :modal.kind==='log'?'Service: '+(md.subject||'record')
+          :modal.kind==='log'?'Service records'
           :modal.kind==='misc'?'Misc':'';
         const pid=await addPhoto(f,{caption:md.title||md.subject||md.name||'',where:spot});
         if(pid&&pet) linkPet(pid,pet.id);
@@ -4528,7 +4528,7 @@ document.addEventListener('click',async e=>{
   if(a==='delkeydate'){ const i=S.keyDates.findIndex(x=>x.id===id); if(i<0) return;
     const [k]=S.keyDates.splice(i,1);
     deleted('\u201c'+k.title+'\u201d',()=>S.keyDates.splice(i,0,k)); return; }
-  if(a==='newcontact'){ modalAt=Date.now(); modal={kind:'contact',isNew:true,draft:{id:uid(),name:'',role:'',phone:'',url:'',note:''}}; render(); return; }
+  if(a==='newcontact'){ modalAt=Date.now(); modal={kind:'contact',isNew:true,draft:{id:uid(),name:'',role:'',phone:'',url:'',note:'',at:Date.now(),by:pref.who()}}; render(); return; }
   if(a==='contact'){ const c=S.contacts.find(x=>x.id===id); if(!c) return;
     modalAt=Date.now(); modal={kind:'contact',draft:{...c}}; render(); return; }
   if(a==='delcontact'){ const i=S.contacts.findIndex(c=>c.id===id); if(i<0) return;
@@ -4666,7 +4666,7 @@ document.addEventListener('click',async e=>{
     modalAt=Date.now(); modal={kind:'buyedit',draft:{...b,est:b.est||'',paid:b.paid||''}}; render(); return; }
   if(a==='togglebuy'){
     const b=S.buy.find(x=>x.id===id);
-    const flip=o=>{ if(o.bought){ o.bought=null; } else { o.bought=isoOf(new Date()); if(!num(o.paid)) o.paid=num(o.est); } };
+    const flip=o=>{ if(o.bought){ o.bought=null; delete o.boughtAt; delete o.boughtBy; } else { o.bought=isoOf(new Date()); o.boughtAt=Date.now(); o.boughtBy=pref.who(); if(!num(o.paid)) o.paid=num(o.est); } };
     if(modal&&modal.kind==='buyedit'&&modal.draft.id===id){ flip(modal.draft); commitDraft(); render(); return; }
     if(!b) return; flip(b); render(); save(); return; }
   if(a==='delbuy'){ const i=S.buy.findIndex(x=>x.id===id); if(i<0) return;
@@ -4908,6 +4908,7 @@ function buildHandoff(){
   const photos=shots.map(p=>`<figure><img src="${photoCache[p.id]}" alt="">
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
   const fileAway=f=>{ if(f.away) return true;
+    if(/^(bill|fuel):/.test(f.cat||'')||f.cat==='Budget') return true;   // your money paperwork isn't the next owner's
     const m=/^(eq|veh|pet|misc):(.+)$/.exec(f.cat||''); if(!m) return false;
     if(m[1]==='veh'||m[1]==='pet') return true;
     if(m[1]==='eq'){ const e=(S.equipment||[]).find(x=>x.id===m[2]); return !e||e.cat!=='appliance'; }
