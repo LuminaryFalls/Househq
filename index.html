@@ -1375,7 +1375,7 @@ function recentChanges(n){
   (S.pets||[]).forEach(p=>push(p.addedAt,p.addedBy,'added '+(p.name||'a pet')+' to Pets'));
   for(const kind of Object.keys(OWNER_KINDS)) for(const o of OWNER_KINDS[kind].list()) (o.dues||[]).forEach(du=>{
     if(du.doneTs) push(du.doneTs,du.doneBy,'marked '+(du.title||'a date')+' done'+(o.name?' for '+o.name:'')); });
-  (S.logs||[]).forEach(l=>push(l.at||l.date,l.who,'recorded '+(l.subject||'a service')));
+  (S.logs||[]).forEach(l=>push(l.at||l.date,l.by||'','recorded '+(l.subject||'a service')));   // who logged it, not who did the work
   (S.photos||[]).forEach(p=>push(p.uploadedAt||p.addedAt,p.by,'added a photo'+(p.caption?' of '+p.caption:'')));
   (S.fuel||[]).forEach(f=>push(f.at,f.by,isPrepay(f)?'prepaid '+money(num(f.amount))+' for fuel'
     :isReading(f)?'logged the tank gauge at '+num(f.pct)+'%':'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
@@ -2389,7 +2389,7 @@ function viewList(){
   if(ready.length){
     banner=`<div class="banner">
       <b>${ready.length===1?esc(ready[0])+' is fully checked.':'Some stages are fully checked.'}</b>
-      <p>Close a stage out and it drops off the list and the filters. Bring it back any time from the House tab.</p>
+      <p>Close a stage out and it drops off the list and the filters. Bring it back any time from Settings.</p>
       <div class="btns">${ready.map(p=>
         `<button class="btn" data-act="closeout" data-v="${esc(p)}">${I.check} Close out ${esc(p)}</button>`).join('')}</div>
     </div>`;
@@ -3288,14 +3288,6 @@ function viewHouse(){
     </div>`; }).join('')}
   <button class="btn dash" style="margin-top:10px" data-act="newkeydate">${I.plus} Add a date</button></section>
 
-  ${/* the stats are gone; only the way back to a finished or closed-out setup list remains, and only when needed */
-    !setupOpen()?`<section class="zone fold ${fo('h.setup')}">${fhead('h.setup','Setup checklist')}${fsum(!setupOpen()?'Finished and tucked away':'Some stages are closed out')}
-    <p class="hint" style="margin-top:0">The setup checklist is done and its tab is tucked away.</p>
-    <div class="btns" style="margin-top:0"><button class="btn" data-act="reopenall">Show the setup list again</button></div></section>`:
-    closedList().length?`<section class="zone fold ${fo('h.setup')}">${fhead('h.setup','Setup checklist')}${fsum(!setupOpen()?'Finished and tucked away':'Some stages are closed out')}
-    <p class="hint" style="margin-top:0">Closed out: ${closedList().map(p=>
-    `${esc(p)} <button class="btn" style="display:inline-flex;width:auto;min-height:0;padding:3px 9px;font-size:12.5px" data-act="reopenphase" data-v="${esc(p)}">bring back</button>`).join(' · ')}</p></section>`:''}
-
   <section class="zone fold ${fo('h.papers')}">${fhead('h.papers','Plans and papers')}${fsum(nFiles('Plans')+' plans · '+nFiles('Papers')+' papers')}
   <h3 class="sub">Blueprints and layouts</h3>
   ${filesSection('Plans','Nothing yet. Upload the blueprints, the plat survey, a room layout — anything you want on hand.')}
@@ -3315,20 +3307,11 @@ function viewHouse(){
 
   <section class="zone fold ${fo('h.service')}">${fhead('h.service','Service history',S.logs.length)}${fsum(S.logs.length?(lastLog?'Latest: '+(lastLog.subject||lastLog.what||'a record')+' · '+fmtDate(lastLog.date):S.logs.length+' records'):'Nothing recorded yet')}
   ${S.logs.length?logHTML(S.logs,true):'<p class="hint">Nothing recorded yet. Every check, cleaning and service you log lands here in date order.</p>'}</section>
-
-  <section class="zone fold ${fo('h.handoff')}">${fhead('h.handoff','Handoff pack')}${fsum('A printable summary for the next owner')}
-  <p class="hint">One document for the next owner: key dates, supplies to reorder, appliances, paint and flooring, contacts, service history and photographs. Pets, vehicles and equipment are left out, since they don't go with the house. Print it to a PDF to hand over.</p>
-  <button class="btn" data-act="handoff">${I.paper} Build the handoff pack</button></section>
-
-  <section class="zone fold ${fo('h.recent')}">${fhead('h.recent','Recent changes')}${fsum((()=>{ const rc=recentChanges(1)[0]; return rc?((rc.by?rc.by+' '+rc.what:rc.what.charAt(0).toUpperCase()+rc.what.slice(1))+' · '+ago(rc.at)):'Nothing yet'; })())}
-  ${(()=>{ const rc=recentChanges(12); return rc.length?rc.map(r=>`<div class="row rc"><div class="body">
-      <div class="t">${esc((r.by?r.by+' ':'')+(r.by?r.what:r.what.charAt(0).toUpperCase()+r.what.slice(1)))}</div>
-      <div class="m">${esc(ago(r.at))}</div></div></div>`).join('')
-    :'<p class="hint">Nothing yet. Ticks, records and photos from every phone show up here, with who did them.</p>'; })()}</section>`;
+`;
 }
 
 function viewSettings(){
-  return `<p class="hint" style="margin-top:0">Things that belong to this phone and this account. The house itself is on the House tab.</p>
+  return `<p class="hint" style="margin-top:0">Sharing, backups and this phone's settings, plus the setup list, the handoff pack and what changed recently. The house itself is on the House tab.</p>
   <h2 class="sec" style="margin-top:8px">Sharing</h2>
   <p class="hint">${esc(cloud.describe())}</p>
   <label class="lbl" style="margin-bottom:12px">Your name on this phone<input data-act="who" value="${esc(pref.who())}" placeholder="Your name" autocomplete="given-name"></label>
@@ -3360,6 +3343,23 @@ function viewSettings(){
     <button class="btn" data-act="pickbackup">Restore from a backup file</button>
     <button class="btn" data-act="pasterestore">Restore by pasting the text</button>
   </div>
+  <h2 class="sec">Setup list</h2>
+  ${!setupOpen()?`<p class="hint">The setup checklist is done and its tab is tucked away.</p>
+    <div class="btns" style="margin-top:0"><button class="btn" data-act="reopenall">Show the setup list again</button></div>`
+  :closedList().length?`<p class="hint">Closed out: ${closedList().map(p=>
+    `${esc(p)} <button class="btn" style="display:inline-flex;width:auto;min-height:0;padding:3px 9px;font-size:12.5px" data-act="reopenphase" data-v="${esc(p)}">bring back</button>`).join(' · ')}</p>`
+  :`<p class="hint">The setup list has its own tab. When it's finished, or you close out a stage, this is where you bring it back.</p>`}
+
+  <h2 class="sec">Handoff pack</h2>
+  <p class="hint">One document for the next owner: key dates, supplies to reorder, appliances, paint and flooring, contacts, service history and photographs. Pets, vehicles and equipment are left out, since they don't go with the house. Print it to a PDF to hand over.</p>
+  <button class="btn" data-act="handoff">${I.paper} Build the handoff pack</button>
+
+  <h2 class="sec">Recent changes</h2>
+  ${(()=>{ const rc=recentChanges(12); return rc.length?rc.map(r=>`<div class="row rc"><div class="body">
+      <div class="t">${esc((r.by?r.by+' ':'')+(r.by?r.what:r.what.charAt(0).toUpperCase()+r.what.slice(1)))}</div>
+      <div class="m">${esc(ago(r.at))}</div></div></div>`).join('')
+    :'<p class="hint">Nothing yet. Ticks, records and photos from every phone show up here, with who did them.</p>'; })()}
+
   <h2 class="sec">Theme</h2>
   <div class="themecols">
     <div class="themecol"><h3>Light</h3>${['concrete','crimson','earth'].map(k=>{const t=THEMES[k];return `
@@ -4054,7 +4054,7 @@ function commitDraft(){
   }else if(modal.kind==='log'){
     const has=(d.what||'').trim()||(d.who||'').trim()||(d.cost||'').trim()||(d.doc||'').trim()||(d.photos&&d.photos.length);
     const rec={id:d.id,refId:d.refId,subject:d.subject,what:d.what,who:d.who,cost:d.cost,doc:d.doc,lineId:d.lineId||'',odo:d.odo||'',
-      photos:[...(d.photos||[])],date:((d.date||'')+' '+(d.time||'')).trim(),at:d.at||Date.now()};
+      photos:[...(d.photos||[])],date:((d.date||'')+' '+(d.time||'')).trim(),at:d.at||Date.now(),by:d.by||pref.who()};
     const i=S.logs.findIndex(x=>x.id===d.id);
     if(i>=0) S.logs[i]=rec; else if(has) S.logs.unshift(rec); else return;
   }else return;
@@ -4314,7 +4314,7 @@ document.addEventListener('click',async e=>{
 
   if(a==='closeout'){ S.closedPhases[v]=isoOf(new Date());
     if(filter===v) filter='All';
-    if(!setupOpen()){ tab='seasons'; editing=false; setNote('Setup finished. The seasonal list is home now; the old list is on the House tab if you ever need it.','ok'); }
+    if(!setupOpen()){ tab='seasons'; editing=false; setNote('Setup finished. The seasonal list is home now; the old list is under Settings if you ever need it.','ok'); }
     render(); save(); return; }
   if(a==='reopenphase'){ delete S.closedPhases[v]; render(); save(); return; }
   if(a==='reopenall'){ S.closedPhases={}; tab='list'; filter='All'; render(); save(); return; }
