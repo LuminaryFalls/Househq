@@ -71,6 +71,7 @@ const I = {
   coin:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M14.5 9.5h-3.75a1.75 1.75 0 0 0 0 3.5h2.5a1.75 1.75 0 0 1 0 3.5H9.5"/></svg>',
   wrench:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
   paw:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><ellipse cx="12" cy="15.3" rx="4.3" ry="3.4"/><circle cx="6.6" cy="10.4" r="2.3"/><circle cx="10.6" cy="7.3" r="2.3"/><circle cx="15.4" cy="7.3" r="2.3"/><circle cx="19" cy="10.6" r="2.1"/></svg>',
+  wrench:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
   mowerIcon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="10" height="6" rx="2"/><line x1="13" y1="9" x2="20" y2="3"/><circle cx="7.5" cy="18" r="2.3"/><circle cx="14.5" cy="18" r="2.3"/></svg>',
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
   plus:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -2255,7 +2256,7 @@ function renderHeader(){
   const tabLabel=tab==='settings'?'Settings':(TABS.find(([k])=>k===tab)||[])[1]||'';
   document.getElementById('htitle').textContent=tabLabel||'House HQ';
   { const av=document.getElementById('havatar'), col=TAB_COLORS[tab]||TAB_COLORS.settings;
-    av.innerHTML=tab==='settings'?I.cog:tab==='gear'?I.paw:((TABS.find(([k])=>k===tab)||[])[2]||I.home);
+    av.innerHTML=tab==='settings'?I.cog:tab==='gear'?I.wrench:((TABS.find(([k])=>k===tab)||[])[2]||I.home);
     av.style.color=col; av.style.background=col+'26'; av.style.borderColor=col+'66'; }
   const gb=document.getElementById('gearbtn'); gb.innerHTML=tab==='settings'?I.x:I.cog; gb.className='icb'+(tab==='settings'?' on':'');
   gb.setAttribute('aria-label',tab==='settings'?'Close settings':'Settings');
@@ -2288,6 +2289,13 @@ function stripHTML(ids){
     const src=thumbOf(id);
     return `<button data-act="viewphoto" data-id="${id}">${src?`<img src="${src}" alt="">`:I.img}</button>`;
   }).join('')}</div>`;
+}
+/* Who a record is for, when it's added from Service history rather than from a card. */
+function logForOptions(cur){
+  const grp=(label,items)=>items.length?`<optgroup label="${esc(label)}">${items.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(x.name||'Unnamed')}</option>`).join('')}</optgroup>`:'';
+  const eq=S.equipment||[];
+  return `<option value="">The house in general</option>`+grp('Appliances',eq.filter(e=>e.cat==='appliance'))+grp('Equipment',eq.filter(e=>e.cat!=='appliance'))
+    +grp('Vehicles',S.vehicles||[])+grp('Pets',S.pets||[]);
 }
 function logHTML(logs,showSubject){
   if(!logs.length) return '';
@@ -3160,7 +3168,7 @@ function petCardsHTML(){
     </div>`;
   }).join('') + `<button class="btn dash" style="margin-top:10px" data-act="addpet">${I.plus} Add a pet</button>`;
 }
-/* Extras sections: collapsed until opened, and each phone remembers which ones you left open. */
+/* Upkeep sections: collapsed until opened, and each phone remembers which ones you left open. */
 let gearSecs=null;
 const gsec=()=>gearSecs||(gearSecs=(()=>{ try{ return JSON.parse(LS('hq:gearsecs')||'{}')||{}; }catch(e){ return {}; } })());
 const gsecSet=(k,v)=>{ gsec()[k]=v; try{ LS('hq:gearsecs',JSON.stringify(gsec())); }catch(e){} };
@@ -3306,7 +3314,8 @@ function viewHouse(){
   <button class="btn dash" style="margin-top:10px" data-act="newcontact">${I.plus} Add a contact</button></section>
 
   <section class="zone fold ${fo('h.service')}">${fhead('h.service','Service history',S.logs.length)}${fsum(S.logs.length?(lastLog?'Latest: '+(lastLog.subject||lastLog.what||'a record')+' · '+fmtDate(lastLog.date):S.logs.length+' records'):'Nothing recorded yet')}
-  ${S.logs.length?logHTML(S.logs,true):'<p class="hint">Nothing recorded yet. Every check, cleaning and service you log lands here in date order.</p>'}</section>
+  ${S.logs.length?logHTML(S.logs,true):'<p class="hint">Nothing recorded yet. Every check, cleaning and service you log lands here in date order.</p>'}
+  <button class="btn dash" style="margin-top:10px" data-act="log" data-id="" data-sub="" data-pick="1">${I.plus} Add a record</button></section>
 `;
 }
 
@@ -3388,8 +3397,8 @@ function viewSettings(){
 
 const VIEWS={list:viewList,seasons:viewSeasons,photos:viewPhotos,gear:viewGear,budget:viewBudget,house:viewHouse,settings:viewSettings};
 let prevTab='seasons';
-const TABS=[['list','Setup',I.list],['seasons','Seasons',I.cal],['photos','Photos',I.cam],['gear','Extras',I.paw],['budget','Budget',I.coin],['house','House',I.home]];
-const GEAR_ICONS=[I.paw,I.mowerIcon];
+const TABS=[['list','Setup',I.list],['seasons','Seasons',I.cal],['photos','Photos',I.cam],['gear','Upkeep',I.wrench],['budget','Budget',I.coin],['house','House',I.home]];
+const GEAR_ICONS=[I.wrench];   // Upkeep is a wrench (it used to rotate a paw and a mower)
 let gearIconIdx=0;
 const TAB_COLORS={list:'#E8A33D',seasons:'#4CAF7D',photos:'#D9578A',gear:'#4C9BD9',budget:'#8E7CC3',house:'#B8623E',settings:'#8891A0'};
 const visibleTabs=()=>TABS.filter(([k])=>k!=='list'||setupOpen());
@@ -3398,7 +3407,7 @@ function renderNav(){
   document.getElementById('nav').innerHTML=visibleTabs().map(([k,l,ic])=>
     `<button class="${tab===k?'on':''}" style="${tab===k?`--tc:${TAB_COLORS[k]}`:''}" data-act="tab" data-v="${k}" ${tab===k?'aria-current="page"':''}><span class="navicon">${k==='gear'?GEAR_ICONS[gearIconIdx]:ic}</span>${l}</button>`).join('');
 }
-/* The Extras icon takes turns being a paw, a jeep and a mower — just the icon
+/* (Old) the Upkeep icon used to take turns between a paw and a mower — just the icon
    swaps, not the whole nav, so it can't interrupt anything you're doing. */
 function cycleGearIcon(){
   gearIconIdx=(gearIconIdx+1)%GEAR_ICONS.length;
@@ -3449,7 +3458,9 @@ function modalHTML(){
   if(modal.kind==='log'){
     const d=modal.draft;
     return sheet(modal.isEdit?'Edit this record':'Record the work',`
-      <div class="m" style="margin-bottom:2px">${esc(d.subject)}</div>
+      ${modal.pickFor?`<label class="lbl">For<select data-m="refId">${logForOptions(d.refId)}</select></label>
+        <input data-m="subject" value="${esc(d.subject)}" placeholder="What it was — e.g. Plumbing repair">`
+      :`<div class="m" style="margin-bottom:2px">${esc(d.subject)}</div>`}
       <div style="display:flex;gap:8px">
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
         <label class="lbl" style="flex:1">Time<input type="time" data-m="time" value="${esc(d.time)}"></label>
@@ -4089,6 +4100,10 @@ document.addEventListener('input',async e=>{
   if(el.dataset.m && modal){
     if(modal.draft){
       modal.draft[el.dataset.m]=el.type==='checkbox'?el.checked:el.value;
+      if(modal.kind==='log'&&el.dataset.m==='refId'){   // picking what it's for fills in the name, unless you typed your own
+        const it=[...(S.equipment||[]),...(S.vehicles||[]),...(S.pets||[])].find(x=>x.id===el.value);
+        if(!modal.draft.subject||modal.draft.subject===modal.autoSub){ modal.draft.subject=it?it.name:''; modal.autoSub=modal.draft.subject; }
+        commitDraft(); render(); return; }
       if(el.dataset.m==='season'){ if(!seasonMonths(el.value).includes(+modal.draft.month)) modal.draft.month=0; commitDraft(); render(); return; }
       commitDraft();
       if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))||(modal.kind==='misc'&&el.dataset.m==='kind')) render();   // live gallons and cost
@@ -4245,7 +4260,7 @@ document.addEventListener('click',async e=>{
     if(modal&&modal.kind==='yeardetail'&&modal.id===id) modal=null;
     deleted('\u201c'+x.title+'\u201d',()=>{ S.yearly.splice(i,0,x); Object.assign(S.yearlyDone,keep); }); return; }
   if(a==='log'){ const now=new Date(); if(noteMsg&&noteKind==='ok') setNote('');
-    modalAt=Date.now(), modal={kind:'log',draft:{id:uid(),refId:id,subject:btn.dataset.sub||'',date:isoOf(now),
+    modalAt=Date.now(), modal={kind:'log',pickFor:!!btn.dataset.pick,draft:{id:uid(),refId:id||'',subject:btn.dataset.sub||'',date:isoOf(now),
       time:now.toTimeString().slice(0,5),what:btn.dataset.what||'',who:pref.who(),cost:'',doc:'',photos:[]}}; render(); return; }
   if(a==='editlog'){ const l=S.logs.find(x=>x.id===id); if(!l) return;
     const [dpart,tpart]=String(l.date||'').split(' ');
@@ -5233,7 +5248,6 @@ async function mountViewer(){
   if(!setupOpen()) tab='seasons';
   if(!store.saving()) setNote('This browser is not letting the app save. Download a backup before you close it.');
   render();
-  setInterval(cycleGearIcon,4000);
   await cloud.init(fresh);
   if(!modal){
     if(fresh&&!cloud.code){ modalAt=Date.now(); modal={kind:'welcome',mode:'',pname:'',who:pref.who(),code:''}; render(); }
