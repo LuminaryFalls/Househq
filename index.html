@@ -69,9 +69,10 @@ const I = {
   grid:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>',
   paper:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
   coin:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M14.5 9.5h-3.75a1.75 1.75 0 0 0 0 3.5h2.5a1.75 1.75 0 0 1 0 3.5H9.5"/></svg>',
-  wrench:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
   paw:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><ellipse cx="12" cy="15.3" rx="4.3" ry="3.4"/><circle cx="6.6" cy="10.4" r="2.3"/><circle cx="10.6" cy="7.3" r="2.3"/><circle cx="15.4" cy="7.3" r="2.3"/><circle cx="19" cy="10.6" r="2.1"/></svg>',
   wrench:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+  msg:'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.4-.9 2.7-2 3.6 2.2 0 4.1-.8 5.4-1.9 1 .3 2.1.4 3.2.4 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
+  share:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>',
   mowerIcon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="10" height="6" rx="2"/><line x1="13" y1="9" x2="20" y2="3"/><circle cx="7.5" cy="18" r="2.3"/><circle cx="14.5" cy="18" r="2.3"/></svg>',
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
   plus:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -1799,6 +1800,7 @@ h2.sec em{font-style:normal;font-size:13px;font-weight:500;color:${t.ink70};font
 .note.ok{background:${t.goodSoft};color:${t.good}}
 .note.ok .icb{color:${t.good}}
 #note{position:sticky;top:0;z-index:50}
+body.pagemode #note{position:fixed;left:0;right:0;top:auto;bottom:calc(14px + env(safe-area-inset-bottom));z-index:60;max-width:580px;margin:0 auto}
 .note.undo{background:${t.ink};color:${t.paper}}
 .undobtn{margin-left:auto;background:${t.paper};color:${t.ink};border:0;border-radius:8px;padding:6px 14px;font-weight:700;font-size:14px;flex:0 0 auto}
 .box.soft{background:${t.goodSoft};border-color:${t.goodSoft};color:${t.good}}
@@ -1926,6 +1928,55 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .mplus{display:inline-grid;place-items:center;width:22px;height:22px;margin-left:4px;border-radius:50%;vertical-align:2px;
   font-size:17px;font-weight:700;line-height:1;background:${t.accentSoft};color:${t.accent}}
 .catrow.organizing{gap:8px}
+.sheet.page{max-height:none;height:100%;border-radius:0;padding:calc(10px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+  background:linear-gradient(180deg,${t.accentSoft} 0,${t.ground} 340px)}
+.sheet.page:before{display:none}
+.pc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:-8px;position:relative;z-index:1}
+.pc-round{width:46px;height:46px;min-height:0;padding:0;border-radius:50%;display:grid;place-items:center;background:${t.paper}CC;border:1px solid ${t.ink}1F;color:${t.ink}}
+.pc-pill{height:46px;min-height:0;padding:0 20px;border-radius:99px;background:${t.paper}CC;border:1px solid ${t.ink}1F;color:${t.ink};font-weight:600;font-size:17px}
+.pc-avatar{width:150px;height:150px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;overflow:hidden;
+  font:600 76px/1 ${BODY};color:${t.paper};background:linear-gradient(160deg,${t.accent}AA,${t.accent});box-shadow:0 8px 30px ${t.ink}26}
+.pc-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.pc-name{text-align:center;font:800 32px/1.1 ${HEAD};margin:0;color:${t.ink}}
+.pc-sub{text-align:center;color:${t.ink70};margin:6px 0 0;font-size:15px}
+.pc-acts{display:flex;justify-content:center;gap:12px;margin:20px 0 6px;flex-wrap:wrap}
+.pc-act{display:grid;justify-items:center;gap:6px;background:none;border:0;padding:0;min-height:0;color:${t.ink};text-decoration:none;width:68px}
+.pc-act .pc-ic{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:${t.paper};border:1px solid ${t.ink}1A;color:${t.accent};box-shadow:0 2px 8px ${t.ink}14}
+.pc-act .pc-al{font-size:12px;font-weight:600;color:${t.ink70};text-align:center;line-height:1.2}
+.pc-act[aria-disabled="true"]{opacity:.35;pointer-events:none}
+.pc-gt{font-size:13px;font-weight:700;color:${t.ink70};margin:18px 6px 6px;text-transform:uppercase;letter-spacing:.04em}
+.pc-group{background:${t.paper};border:1px solid ${t.ink}14;border-radius:22px;padding:2px 18px;margin:12px 0}
+.pc-gt+.pc-group{margin-top:0}
+.pc-row{display:flex;align-items:center;gap:12px;width:100%;min-height:0;padding:13px 0;margin:0;border:0;border-bottom:1px solid ${t.rule};border-radius:0;
+  background:none;text-align:left;color:${t.ink};text-decoration:none}
+.pc-row:last-child{border-bottom:0}
+.pc-tx{display:grid;gap:2px;flex:1;min-width:0}
+.pc-l{font-size:13.5px;color:${t.ink70}}
+.pc-v{font-size:17px;color:${t.ink};overflow-wrap:anywhere;white-space:pre-wrap}
+a.pc-row .pc-v{color:${t.accent}}
+.pc-tr{color:${t.accent};display:grid;flex:0 0 auto}
+.pc-check .pc-v{font-weight:600}
+.pc-photos{padding:12px}
+.pc-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pc-ph{aspect-ratio:1/1;width:100%;min-height:0;padding:0;border-radius:12px;overflow:hidden;border:0;background:${t.ground};display:grid;place-items:center;color:${t.ink70}}
+.pc-ph img{width:100%;height:100%;object-fit:cover;display:block}
+.pc-list{padding:0 18px}
+.pc-li{display:flex;align-items:center;gap:10px;width:100%;min-height:0;padding:16px 0;margin:0;border:0;border-bottom:1px solid ${t.rule};border-radius:0;
+  background:none;text-align:left;color:${t.accent};font-size:17px;font-weight:500}
+.pc-li:last-child{border-bottom:0}
+.pc-li.danger{color:#d23b3b}
+button.pc-avatar{border:0;padding:0;min-height:0;cursor:pointer}
+.pc-phl{display:flex;justify-content:center;gap:20px;margin:0 0 8px}
+.pc-phl button{background:none;border:0;min-height:0;padding:4px;color:${t.accent};font-weight:600;font-size:15px}
+.pc-pill.on{background:${t.accent};color:#fff;border-color:${t.accent}}
+.pcard.editing .pc-avatar{width:96px;height:96px;font-size:46px}
+.pcard.editing .pc-name{font-size:24px}
+.pc-edit{margin-top:16px}
+.pc-edit .card{background:${t.paper};border:1px solid ${t.ink}14;border-radius:22px;box-shadow:none}
+.pc-edit .card>.head{display:none}
+.pc-edit .card>.inner{border-top:0;padding-top:16px}
+.pc-edit [data-act="delequip"],.pc-edit [data-act="delvehicle"],.pc-edit [data-act="delpet"],
+.pc-edit [data-act="petprofile"],.pc-edit [data-act="snappet"],.pc-edit .petphoto-row{display:none!important}
 .gzhead{display:flex;align-items:center;gap:10px;width:100%;min-height:0;margin:0;padding:2px 0 0;border:0;border-radius:0;background:none;text-align:left;color:inherit}
 .gzhead h2.sec{margin:0;flex:1}
 .gzhead .mplus{margin-left:0;flex:0 0 auto;width:26px;height:26px;font-size:19px}
@@ -2335,7 +2386,7 @@ function searchAll(ql){
   (S.photos||[]).forEach(p=>{ if(has(p.caption,p.where,p.note))
     add('Photos',p.caption||'Not named yet',[p.where,fmtDate(p.addedAt)],'viewphoto',p.id); });
   (S.contacts||[]).forEach(c=>{ if(has(c.name,c.role,c.note,c.phone))
-    add('Who to call',c.name,[c.role,c.phone,c.note],'contact',c.id); });
+    add('Who to call',c.name,[c.role,c.phone,c.note],'card',c.id,'contact'); });
   (S.equipment||[]).forEach(e=>{
     const parts=(e.specs||[]).map(sp=>sp.k+' '+sp.v).join(' ');
     const checks=(e.checks||[]).map(c=>c.title).join(' ');
@@ -2360,7 +2411,7 @@ function searchAll(ql){
       add('Pets',pet.name,[pet.breed,pet.vetName],'petjump','',pet.id);
   });
   (S.misc||[]).forEach(x=>{ if(has(x.name,x.kind,x.room,x.brand,x.color,x.code,x.details,x.store,x.left))
-    add('Misc',x.name||'Unnamed',[x.room,x.kind,[x.brand,x.color].filter(Boolean).join(' '),x.code],'misc',x.id); });
+    add('Misc',x.name||'Unnamed',[x.room,x.kind,[x.brand,x.color].filter(Boolean).join(' '),x.code],'card',x.id,'misc'); });
   (S.fuel||[]).forEach(f=>{ if(has(f.vendor,f.note,f.date))
     add('Fuel',fmtDate(f.date),[isPrepay(f)?'prepay '+money(num(f.amount)):isReading(f)?'gauge '+num(f.pct)+'%':f.gallons?f.gallons+' gal':'',f.vendor,f.note],
       isPrepay(f)?'prepay':isReading(f)?'fuelread':'fuel',f.id); });
@@ -2528,7 +2579,7 @@ function viewPhotos(){
   const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
   if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
   if(g){
-    const pet=['pets','inventory','supplies','misc','service'].includes(g.key), room=ROOM_KEYS.includes(g.key);
+    const pet=['pets','inventory','supplies','misc','service','upkeep'].includes(g.key), room=ROOM_KEYS.includes(g.key);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
       <div style="flex:1"></div>
@@ -2612,7 +2663,7 @@ function photoGroups(){
 const albumKeyOf=p=>{ const k=((p&&p.where)||'').trim().toLowerCase();
   return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k==='sizes'?'supplies'
     :(k.startsWith('service: ')||k==='service records')?'service':k; };
-const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc',service:'Service records'};
+const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc',service:'Service records',upkeep:'Upkeep'};
 const linkPet=(photoId,petId)=>{ const ph=S.photos.find(x=>x.id===photoId); if(ph) ph.petId=petId; };
 function photosAt(key){ return S.photos.filter(p=>albumKeyOf(p)===key).slice().reverse(); } // oldest first
 /* A pet's own photos: linked by id, or (older photos) by their "Pet: name" tag. */
@@ -3040,17 +3091,17 @@ function maintCardsHTML(cfg){
     const d=e.checks.filter(c=>done[e.id+':'+c.id+':'+y]).length;
     return `<div class="card">
       <button class="head" data-act="${cfg.actOpen}" data-id="${e.id}">
-        <b>${esc(e.name)}</b><i>${e.checks.length?`${d}/${e.checks.length} in ${y}`:'no checks yet'}</i></button>
+        <span style="display:flex;align-items:center;gap:12px;min-width:0">${thumbDot(itemPhotoId(cfg.kind,e))}<b>${esc(e.name)}</b></span><i>${e.checks.length?`${d}/${e.checks.length} in ${y}`:'no checks yet'}</i></button>
       ${open?`<div class="inner">
         <div class="fields" style="display:grid;gap:8px;margin-bottom:16px">
-          <input data-act="${cfg.actField}" data-id="${e.id}" data-f="name" value="${esc(e.name)}" placeholder="Name">
+          <label class="lbl" style="margin:0">Name<input data-act="${cfg.actField}" data-id="${e.id}" data-f="name" value="${esc(e.name)}" placeholder="Name"></label>
           ${cfg.kind==='eq'?`<label class="lbl" style="margin:0">Type<select data-act="eq" data-id="${e.id}" data-f="cat" data-rerender="1">
             <option value="equipment" ${e.cat!=='appliance'?'selected':''}>Equipment</option><option value="appliance" ${e.cat==='appliance'?'selected':''}>Appliance</option></select></label>`:''}
           <div style="display:flex;gap:8px">
-            <input data-act="${cfg.actField}" data-id="${e.id}" data-f="make" value="${esc(e.make)}" placeholder="Make">
-            <input data-act="${cfg.actField}" data-id="${e.id}" data-f="model" value="${esc(e.model)}" placeholder="Model">
+            <label class="lbl" style="margin:0;flex:1;min-width:0">Make<input data-act="${cfg.actField}" data-id="${e.id}" data-f="make" value="${esc(e.make)}" placeholder="e.g. LG"></label>
+            <label class="lbl" style="margin:0;flex:1;min-width:0">Model<input data-act="${cfg.actField}" data-id="${e.id}" data-f="model" value="${esc(e.model)}" placeholder="Model number"></label>
           </div>
-          <input data-act="${cfg.actField}" data-id="${e.id}" data-f="serial" value="${esc(e.serial)}" placeholder="${cfg.serialLabel}">
+          <label class="lbl" style="margin:0">${cfg.serialLabel}<input data-act="${cfg.actField}" data-id="${e.id}" data-f="serial" value="${esc(e.serial)}" placeholder="${cfg.serialLabel}"></label>
           ${cfg.miles?`<label class="lbl" style="margin:0">Current mileage<input data-act="${cfg.actField}" data-id="${e.id}" data-f="odo" data-rerender="1" value="${esc(e.odo||'')}" placeholder="e.g. 84,200" inputmode="numeric"></label>`:''}
         </div>
         <h3 style="font:700 17px system-ui;margin:0 0 6px">Parts and supplies</h3>
@@ -3098,7 +3149,7 @@ function maintCardsHTML(cfg){
         </div>
       </div>`:''}
     </div>`;
-  }).join('') + ((cfg.addAlways||editing)?`<button class="btn${cfg.addAlways?' dash':''}" style="${cfg.addAlways?'margin-top:10px':''}" data-act="${cfg.actAddNew}">${I.plus} ${cfg.addLabel}</button>`:'');
+  }).join('') + (!cfg.noAdd&&(cfg.addAlways||editing)?`<button class="btn${cfg.addAlways?' dash':''}" style="${cfg.addAlways?'margin-top:10px':''}" data-act="${cfg.actAddNew}">${I.plus} ${cfg.addLabel}</button>`:'');
 }
 /* A pet's photos and its name share one tag, "Pet: <name>", so its gallery
    survives a rename (see the petf handler) and doesn't collide with a room
@@ -3106,6 +3157,7 @@ function maintCardsHTML(cfg){
 const petPhotoTag=name=>'Pet: '+(name||'').trim();
 /* A pet's profile photo: the one you set, or else their newest gallery photo. */
 function petAvatarId(pet){
+  if(pet.noAvatar) return '';
   if(pet.photoId&&(S.photos||[]).some(p=>p.id===pet.photoId)) return pet.photoId;
   const pics=petPhotos(pet);
   return pics.length?pics[pics.length-1].id:'';
@@ -3113,8 +3165,8 @@ function petAvatarId(pet){
 const petAvatar=(pet,cls)=>{ const id=petAvatarId(pet), src=id?thumbOf(id):'';
   return `<span class="petav ${cls||''}" ${id?`data-thumb="${id}"`:''}>${src?`<img src="${src}" alt="">`:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15.3" rx="4.3" ry="3.4"/><circle cx="6.6" cy="10.4" r="2.3"/><circle cx="10.6" cy="7.3" r="2.3"/><circle cx="15.4" cy="7.3" r="2.3"/><circle cx="19" cy="10.6" r="2.1"/></svg>'}</span>`; };
 const petPhotoKey=name=>petPhotoTag(name).toLowerCase();
-function petCardsHTML(){
-  return (S.pets||[]).map(pet=>{
+function petCardsHTML(onlyId){
+  return (S.pets||[]).filter(pet=>!onlyId||pet.id===onlyId).map(pet=>{
     const open=openPet===pet.id;
     const pics=petPhotos(pet);
     return `<div class="card">
@@ -3122,12 +3174,12 @@ function petCardsHTML(){
         <span style="display:flex;align-items:center;gap:12px;min-width:0">${petAvatar(pet)}<b>${esc(pet.name)||'New pet'}</b></span><i>${esc(pet.breed||'')}</i></button>
       ${open?`<div class="inner">
         <div class="fields" style="display:grid;gap:8px;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:14px">
+          <div class="petphoto-row" style="display:flex;align-items:center;gap:14px">
             ${petAvatar(pet,'big')}
             <button class="btn" style="flex:1" data-act="petprofile" data-id="${pet.id}">${I.cam} ${petAvatarId(pet)?'Change profile photo':'Add a profile photo'}</button>
           </div>
-          <input data-act="petf" data-id="${pet.id}" data-f="name" value="${esc(pet.name)}" placeholder="Name">
-          <input data-act="petf" data-id="${pet.id}" data-f="breed" value="${esc(pet.breed)}" placeholder="Breed or species">
+          <label class="lbl" style="margin:0">Name<input data-act="petf" data-id="${pet.id}" data-f="name" value="${esc(pet.name)}" placeholder="Name"></label>
+          <label class="lbl" style="margin:0">Breed or species<input data-act="petf" data-id="${pet.id}" data-f="breed" value="${esc(pet.breed)}" placeholder="e.g. Dogo Argentino"></label>
         </div>
         <h3 style="font:700 17px system-ui;margin:0 0 6px">Vet</h3>
         <div style="display:flex;gap:8px">
@@ -3166,7 +3218,23 @@ function petCardsHTML(){
         </div>
       </div>`:''}
     </div>`;
-  }).join('') + `<button class="btn dash" style="margin-top:10px" data-act="addpet">${I.plus} Add a pet</button>`;
+  }).join('') + (onlyId?'':`<button class="btn dash" style="margin-top:10px" data-act="addpet">${I.plus} Add a pet</button>`);
+}
+/* The full editor for one pet / machine, shown inside its detail page when you tap Edit. */
+function cardEditorHTML(type,o){
+  const y=S.activeYear;
+  if(type==='pet') return petCardsHTML(o.id);
+  if(type==='veh') return maintCardsHTML({items:[o], done:S.vehicleDone||{}, y, openId:o.id, noun:'vehicle', noAdd:true,
+      actOpen:'vehicle', actField:'veh', actSpec:'vspec', actAddSpec:'addvspec', actDelSpec:'delvspec',
+      actChk:'vchk', actAddChk:'addvchk', actDelChk:'delvchk', actToggle:'togglevehicle',
+      actDel:'delvehicle', actAddNew:'', serialLabel:'VIN or plate', addLabel:'', filePrefix:'veh:', kind:'veh', miles:true,
+      dueBlurb:'Registration renewal, insurance, inspection — anything with a date.'});
+  const app=o.cat==='appliance';
+  return maintCardsHTML({items:[o], done:S.equipDone||{}, y, openId:o.id, noun:app?'appliance':'equipment', noAdd:true,
+      actOpen:'equip', actField:'eq', actSpec:'espec', actAddSpec:'addespec', actDelSpec:'delespec',
+      actChk:'echk', actAddChk:'addechk', actDelChk:'delechk', actToggle:'toggleequip',
+      actDel:'delequip', actAddNew:'', serialLabel:'Serial number', addLabel:'', filePrefix:'eq:', kind:'eq',
+      dueBlurb:app?'A warranty end, a filter subscription, anything with a date.':'A service contract, a filter subscription, anything with a date.'});
 }
 /* Upkeep sections: collapsed until opened, and each phone remembers which ones you left open. */
 let gearSecs=null;
@@ -3192,10 +3260,10 @@ function miscHTML(){
   const rows=items.map(f=>{
     const room=(f.room||'').trim()||'No room'; let head='';
     if(room!==last){ last=room; head=`<h3 class="sub" style="margin:14px 0 2px">${esc(room)}</h3>`; }
-    const ph=(f.photos||[]).find(id=>(S.photos||[]).some(p=>p.id===id))||'', hasCode=(f.code||'').trim();
+    const ph=itemPhotoId('misc',f), hasCode=(f.code||'').trim();
     const main=hasCode?f.code:[f.brand,f.color].filter(Boolean).join(' · ');
     const sub=[f.kind,hasCode?[f.brand,f.color].filter(Boolean).join(' '):'',f.left?'Left: '+f.left:'',num(f.value)?money(num(f.value)):''].filter(Boolean).join(' · ');
-    return head+`<button class="sizerow" data-act="misc" data-id="${f.id}">
+    return head+`<button class="sizerow" data-act="card" data-v="misc" data-id="${f.id}">
       <span class="spthumb ${ph?'':'add'}" ${ph?`data-thumb="${ph}"`:''}>${ph?(thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img):I.cam}</span>
       <span class="sztext"><b>${esc(f.name)||'Unnamed'}</b>
         <span class="szv">${main?esc(main):'<i>No details yet</i>'}</span>
@@ -3304,7 +3372,7 @@ function viewHouse(){
 
   <section class="zone fold ${fo('h.who')}">${fhead('h.who','Who to call',S.contacts.length)}${fsum(nameList(S.contacts.map(c=>c.name))||'Nobody yet')}
   ${S.contacts.map(c=>`<div class="row">
-    <button class="body" data-act="contact" data-id="${c.id}">
+    <button class="body" data-act="card" data-v="contact" data-id="${c.id}">
       <div class="t">${esc(c.name)}</div>
       <div class="m">${[c.role,c.note].filter(Boolean).map(esc).join(' · ')}</div></button>
     ${fixURL(c.url)?`<a class="icb" href="${esc(fixURL(c.url))}" target="_blank" rel="noopener" aria-label="Website">${I.link}</a>`:''}
@@ -3426,6 +3494,7 @@ function render(){
   setHTML(document.getElementById('view'),searching?viewSearch():(searchOpen?searchBar():'')+VIEWS[tab]());
   renderNav();
   setHTML(document.getElementById('modal'),modal?modalHTML():'');
+  document.body.classList.toggle('pagemode',!!(modal&&modal.kind==='card'));   // full-screen pages: messages go to the bottom, clear of Back / Edit / Done
   if(modal&&(modal.kind==='fileview'||modal.kind==='handoff')) mountViewer();
   // lazy-load any photos on screen
   const small=[...document.querySelectorAll('[data-act="viewphoto"],[data-thumb]')].map(b=>b.dataset.id||b.dataset.thumb);
@@ -3436,7 +3505,115 @@ function render(){
 /* ============================================================
    Modals
 ============================================================ */
+/* ---------- Detail page: tap a contact, pet, appliance, piece of equipment, vehicle or misc item ----------
+   Laid out like a phone's contact card: big photo or initial, the name, round action buttons, then the details in
+   rounded groups. Edit goes to the item's own editor; Share and Delete sit at the bottom. */
+/* An item's profile picture: the one you picked; misc falls back to its first photo, pets to their newest. */
+function itemPhotoId(type,o){
+  if(!o) return '';
+  if(type==='pet') return petAvatarId(o);
+  const ok=id=>id&&(S.photos||[]).some(p=>p.id===id);
+  if(ok(o.photoId)) return o.photoId;
+  if(type==='misc'&&!o.noAvatar) return (o.photos||[]).find(ok)||'';
+  return '';
+}
+const thumbDot=id=>id?`<span class="petav" data-thumb="${id}">${thumbOf(id)?`<img src="${thumbOf(id)}" alt="">`:''}</span>`:'';
+function cardItem(type,id){
+  return type==='contact'?(S.contacts||[]).find(x=>x.id===id):type==='pet'?(S.pets||[]).find(x=>x.id===id)
+    :type==='veh'?(S.vehicles||[]).find(x=>x.id===id):type==='misc'?(S.misc||[]).find(x=>x.id===id):(S.equipment||[]).find(x=>x.id===id);
+}
+function cardShareText(type,o){
+  const L=[o.name||o.title||''];
+  const add=(k,v)=>{ if(String(v||'').trim()) L.push((k?k+': ':'')+v); };
+  if(type==='contact'){ add('',o.role); add('',o.phone); add('',o.url); add('',o.note); }
+  else if(type==='pet'){ add('',o.breed); add('Vet',[o.vetName,o.vetPhone].filter(Boolean).join(' ')); (o.specs||[]).forEach(x=>add(x.k,x.v)); (o.dues||[]).forEach(du=>{ const w=nextDue(du); if(w) add(du.title,fmtDate(isoOf(w))); }); }
+  else if(type==='misc'){ add('',[o.kind,o.room].filter(Boolean).join(' · ')); add('',[o.brand,o.color].filter(Boolean).join(' ')); add('Code',o.code); add('Bought',[o.store,o.date?fmtDate(o.date):''].filter(Boolean).join(' · ')); add('',o.details); }
+  else { add('',[o.make,o.model].filter(Boolean).join(' ')); add(type==='veh'?'VIN or plate':'Serial',o.serial); if(type==='veh') add('Mileage',o.odo); (o.specs||[]).forEach(x=>add(x.k,x.v)); add('Notes',o.notes); }
+  return L.filter(Boolean).join('\n');
+}
+function cardHTML(){
+  const m=modal, o=cardItem(m.type,m.id);
+  if(!o){ modal=null; return ''; }
+  const y=S.activeYear, isVeh=m.type==='veh', isEq=m.type==='eq';
+  const act=a=>a.href!==undefined
+    ?`<a class="pc-act" ${a.href?`href="${esc(a.href)}"`:''} ${a.ext?'target="_blank" rel="noopener"':''} ${a.href?'':'aria-disabled="true"'}><span class="pc-ic">${a.icon}</span><span class="pc-al">${esc(a.label)}</span></a>`
+    :`<button class="pc-act" data-act="${a.act}" ${a.attrs||''} ${a.off?'aria-disabled="true" disabled':''}><span class="pc-ic">${a.icon}</span><span class="pc-al">${esc(a.label)}</span></button>`;
+  const row=(label,value,x={})=>{ if(!String(value==null?'':value).trim()&&!x.keep) return '';
+    const inner=`<span class="pc-tx"><span class="pc-l">${esc(label)}</span><span class="pc-v">${x.html?value:esc(value)}</span></span>${x.trail?`<span class="pc-tr">${x.trail}</span>`:''}`;
+    return x.href?`<a class="pc-row" href="${esc(x.href)}" ${x.ext?'target="_blank" rel="noopener"':''}>${inner}</a>`
+      :x.act?`<button class="pc-row" data-act="${x.act}" ${x.attrs||''}>${inner}</button>`:`<div class="pc-row">${inner}</div>`; };
+  const group=(title,rows)=>{ const r=(rows||[]).filter(Boolean).join(''); return r?`${title?`<div class="pc-gt">${esc(title)}</div>`:''}<div class="pc-group">${r}</div>`:''; };
+  const dueLine=du=>{ const w=nextDue(du); return w?`${fmtDate(isoOf(w))} · ${countdown(w)}${+du.every?' · '+dueEveryWord(du.every).toLowerCase():''}`:(du.doneAt?'done '+fmtDate(du.doneAt):''); };
+  const dues=x=>(x.dues||[]).filter(du=>(du.title||'').trim()).map(du=>row(du.title,dueLine(du)));
+  const recs=id=>{ const L=(S.logs||[]).filter(l=>l.refId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    return L.slice(0,5).map(l=>row(fmtDate(l.date),[l.what||l.subject,l.who,num(l.cost)?money(num(l.cost)):''].filter(Boolean).join(' · ')||'Record',
+      {act:'cardgo',attrs:`data-go="editlog" data-id="${l.id}"`,trail:I.right})).concat(L.length>5?[row('',`${L.length-5} more in Service history`)]:[]); };
+  const docs=cat=>(S.files||[]).filter(f=>f.cat===cat).map(f=>row(catLabel(f.cat)?'document':'document',f.name,{act:'openfile',attrs:`data-id="${f.id}"`,trail:I.doc}));
+  const strip=ids=>ids.length?`<div class="pc-group pc-photos"><div class="pc-strip">${ids.map(id=>`<button class="pc-ph" data-act="cardgo" data-go="viewphoto" data-id="${id}" data-thumb="${id}">${thumbOf(id)?`<img src="${thumbOf(id)}" alt="">`:I.img}</button>`).join('')}</div></div>`:'';
+  const initial=n=>esc(((n||'?').trim()[0]||'?').toUpperCase());
+  const avatar=ph=>{ const inner=ph&&thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:initial(o.name||o.title);
+    if(m.edit&&m.type!=='contact'&&m.type!=='misc')   // in Edit, tapping the circle adds or changes the picture
+      return `<button class="pc-avatar" data-act="cardphoto" ${ph?`data-thumb="${ph}"`:''} aria-label="${ph?'Change the photo':'Add a photo'}">${inner}</button>`;
+    if(ph) return `<button class="pc-avatar" data-thumb="${ph}" data-act="cardgo" data-go="viewphoto" data-id="${ph}" aria-label="See the photo">${inner}</button>`;
+    return `<div class="pc-avatar">${inner}</div>`; };
+  const photoLinks=ph=>`<div class="pc-phl">${ph?`<button data-act="cardphoto">Change photo</button><button data-act="cardphotorm">Remove photo</button>`:`<button data-act="cardphoto">Add photo</button>`}</div>`;
+  let photo='', sub='', acts=[], body='', delAct='', noun='';
+  if(m.type==='contact'){
+    const tel=o.phone?telOf(o.phone):''; sub=o.role||''; delAct='delcontact'; noun='contact';
+    acts=[{label:'message',icon:I.msg,href:tel?'sms:'+tel.replace(/,.*$/,''):''},{label:'call',icon:I.phone,href:tel?'tel:'+tel:''},
+          {label:'website',icon:I.link,href:o.url||'',ext:true},{label:'copy',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.phone||'')}"`,off:!o.phone}];
+    body=group('',[row('phone',o.phone,{href:tel?'tel:'+tel:'',trail:I.phone})])+group('',[row('website',o.url,{href:o.url,ext:true,trail:I.link})])
+        +group('',[row('Notes',o.note,{keep:true})]);
+  } else if(m.type==='pet'){
+    const tel=o.vetPhone?telOf(o.vetPhone):''; photo=petAvatarId(o); sub=o.breed||''; delAct='delpet'; noun='pet';
+    acts=[{label:'call vet',icon:I.phone,href:tel?'tel:'+tel:''},{label:'vet visit',icon:I.doc,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Vet visit"`},
+          {label:'grooming',icon:I.doc,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Grooming"`},{label:'add photos',icon:I.cam,act:'cardgo',attrs:`data-go="snappet" data-id="${o.id}"`}];
+    body=group('Vet',[row('vet',o.vetName),row('vet phone',o.vetPhone,{href:tel?'tel:'+tel:'',trail:I.phone})])
+        +group('Details',(o.specs||[]).map(x=>row(x.k||'Detail',x.v)))+group('Dates',dues(o))+group('Records',recs(o.id))
+        +(petPhotos(o).length?`<div class="pc-gt">Photos</div>${strip(petPhotos(o).slice(-12).reverse().map(x=>x.id))}`:'')+group('Documents',docs('pet:'+o.id));
+  } else if(m.type==='misc'){
+    photo=itemPhotoId('misc',o); sub=[o.kind,o.room].filter(Boolean).join(' · '); delAct='delmisc'; noun='item';
+    acts=[{label:'copy code',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.code||'')}"`,off:!o.code},{label:'share',icon:I.share,act:'cardshare'}];
+    body=group('',[row('brand',o.brand),row('color or style',o.color),row('code, model or serial',o.code,{act:'cardcopy',attrs:`data-v="${esc(o.code||'')}"`,trail:I.doc})])
+        +group('Bought',[row('at',o.store),row('date',o.date?fmtDate(o.date):''),row('value',num(o.value)?money(num(o.value)):''),row('left over',o.left)])
+        +group('',[row('Details',o.details)])+group('',[row('handoff pack',o.stays===false?'Not included — this is a belonging':'Included — it stays with the house')])
+        +((o.photos||[]).length?`<div class="pc-gt">Photos</div>${strip((o.photos||[]).filter(id=>(S.photos||[]).some(p=>p.id===id)))}`:'')+group('Documents',docs('misc:'+o.id));
+  } else {
+    const done=isVeh?(S.vehicleDone||{}):(S.equipDone||{}), tog=isVeh?'togglevehicle':'toggleequip'; photo=itemPhotoId(m.type,o);
+    sub=[[o.make,o.model].filter(Boolean).join(' '),isVeh?'Vehicle':o.cat==='appliance'?'Appliance':'Equipment'].filter(Boolean).join(' · ');
+    delAct=isVeh?'delvehicle':'delequip'; noun=isVeh?'vehicle':o.cat==='appliance'?'appliance':'equipment';
+    acts=[{label:'log service',icon:I.wrench,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}"`},
+          {label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="${isVeh?'veh':'eq'}:${o.id}"`},
+          {label:isVeh?'copy VIN':'copy serial',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.serial||'')}"`,off:!o.serial},{label:'share',icon:I.share,act:'cardshare'}];
+    const checks=(o.checks||[]).map(c=>{ const k=o.id+':'+c.id+':'+y, on=!!done[k], left=isVeh&&typeof milesLeft==='function'?milesLeft(o,c):null;
+      return `<div class="pc-row pc-check">${checkbox(on,tog,'data-id="'+o.id+'" data-cid="'+c.id+'"',c.title+' on the '+o.name)}
+        <span class="pc-tx"><span class="pc-v">${esc(c.title)}</span><span class="pc-l">${esc([on?tickWords(done[k]):'not yet in '+y,c.freq,left!==null&&left!==undefined?(left<=0?'due now by mileage':left+' miles to go'):''].filter(Boolean).join(' · '))}</span></span></div>`; });
+    body=group('',[row('make',o.make),row('model',o.model),row(isVeh?'VIN or plate':'serial number',o.serial,{act:'cardcopy',attrs:`data-v="${esc(o.serial||'')}"`,trail:I.doc}),isVeh?row('mileage',o.odo?Number(num(o.odo)).toLocaleString()+' mi':''):''])
+        +group('Parts and supplies',(o.specs||[]).map(x=>row(x.k||'Part',x.v)))+(checks.length?`<div class="pc-gt">Tune-up checks · ${y}</div><div class="pc-group">${checks.join('')}</div>`:'')
+        +group('Dates',dues(o))+group('Service history',recs(o.id))+group('Documents',docs((isVeh?'veh:':'eq:')+o.id))+group('',[row('Notes',o.notes)]);
+  }
+  if(m.edit&&m.type!=='contact'&&m.type!=='misc') return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard editing">
+    <div class="pc-top"><span></span><button class="pc-pill on" data-act="cardeditdone">Done</button></div>
+    ${avatar(photo)}${photoLinks(photo)}
+    <h1 class="pc-name">${esc(o.name||'Unnamed')}</h1>${sub?`<p class="pc-sub">${esc(sub)}</p>`:''}
+    <div class="pc-edit">${cardEditorHTML(m.type,o)}</div>
+    <div class="pc-group pc-list">
+      <button class="pc-li danger" data-act="sheetdel" data-v="${delAct}" data-id="${o.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this '+noun}</button>
+    </div></div></div></div>`;
+  return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard">
+    <div class="pc-top"><button class="pc-round" data-act="closemodal" aria-label="Back">${I.left}</button>
+      <button class="pc-pill" data-act="cardedit">Edit</button></div>
+    ${avatar(photo)}
+    <h1 class="pc-name">${esc(o.name||o.title||'Unnamed')}</h1>${sub?`<p class="pc-sub">${esc(sub)}</p>`:''}
+    <div class="pc-acts">${acts.map(act).join('')}</div>
+    ${body}
+    <div class="pc-group pc-list">
+      <button class="pc-li" data-act="cardshare">${I.share} Share ${esc(noun)} details</button>
+      <button class="pc-li danger" data-act="sheetdel" data-v="${delAct}" data-id="${o.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this '+noun}</button>
+    </div></div></div></div>`;
+}
 function modalHTML(){
+  if(modal.kind==='card') return cardHTML();
   if(modal.kind==='task'){
     const d=modal.draft;
     return sheet(modal.isNew?'New item':'Edit item',`
@@ -4159,12 +4336,15 @@ document.addEventListener('click',async e=>{
   if(!btn) return;
   const a=btn.dataset.act, id=btn.dataset.id, v=btn.dataset.v;
 
+  if(a==='scrim'&&modal&&modal.kind==='card'&&modal.edit){ editing=false; openPet=null; }
   if(a==='scrim'){
     if(Date.now()-modalAt<600) return;            // ignore the ghost click that follows opening
     if(e.target===btn){ const back=modal&&modal.back; closeModal();
       if(back){ modalAt=Date.now(); modal=back; } render(); }
     return; }
-  if(a==='closemodal'||a==='done'){ const back=modal&&modal.back; closeModal();
+  if(a==='closemodal'||a==='done'){ const back=modal&&modal.back;
+    if(modal&&modal.kind==='card'&&modal.edit){ editing=false; openPet=null; }
+    closeModal();
     if(back){ modalAt=Date.now(); modal=back; } render(); return; }
   if(a==='undo'){ if(undoCur){ const u=undoCur; undoCur=null; clearTimeout(undoTimer); u.undo(); } setNote(''); render(); save(); return; }
   if(a==='slipped'){ slippedOpen=!slippedOpen; render(); return; }
@@ -4191,9 +4371,9 @@ document.addEventListener('click',async e=>{
     if((S.vehicles||[]).some(x=>x.id===id)){ tab='gear'; openVehicle=id; gsecSet('vehicles',true); q=''; searchOpen=false; render(); return; }
     if((S.pets||[]).some(x=>x.id===id)){ tab='gear'; openPet=id; gsecSet('pets',true); q=''; searchOpen=false; render(); return; }
     return; }
-  if(a==='equipjump'){ tab='gear'; openEquip=v; gsecSet(equipSecOf(v),true); q=''; searchOpen=false; render(); return; }
-  if(a==='vehiclejump'){ tab='gear'; openVehicle=v; gsecSet('vehicles',true); q=''; searchOpen=false; render(); return; }
-  if(a==='petjump'){ tab='gear'; openPet=v; gsecSet('pets',true); q=''; searchOpen=false; render(); return; }
+  if(a==='equipjump'){ tab='gear'; gsecSet(equipSecOf(v),true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'eq',id:v}; render(); return; }
+  if(a==='vehiclejump'){ tab='gear'; gsecSet('vehicles',true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'veh',id:v}; render(); return; }
+  if(a==='petjump'){ tab='gear'; gsecSet('pets',true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'pet',id:v}; render(); return; }
   if(a==='fvsheet'){ if(modal&&modal.payload){ modal.payload.sheet=v;
       const h=document.getElementById('fv'); if(h){ h.innerHTML=''; paintViewer(h,modal.payload); } } return; }
   if(a==='fileout'){ await downloadFile(id); return; }
@@ -4211,9 +4391,9 @@ document.addEventListener('click',async e=>{
   if(a==='edit'){ editing=!editing; render(); return; }
   if(a==='filter'){ filter=v; render(); return; }
   if(a==='pickseason'){ seasonSel=v; render(); return; }
-  if(a==='equip'){ openEquip=openEquip===id?null:id; render(); return; }
-  if(a==='vehicle'){ openVehicle=openVehicle===id?null:id; render(); return; }
-  if(a==='pet'){ openPet=openPet===id?null:id; render(); return; }
+  if(a==='equip'){ if(openEquip===id){ openEquip=null; render(); return; } modalAt=Date.now(); modal={kind:'card',type:'eq',id}; render(); return; }
+  if(a==='vehicle'){ if(openVehicle===id){ openVehicle=null; render(); return; } modalAt=Date.now(); modal={kind:'card',type:'veh',id}; render(); return; }
+  if(a==='pet'){ if(openPet===id){ openPet=null; render(); return; } modalAt=Date.now(); modal={kind:'card',type:'pet',id}; render(); return; }
   if(a==='theme'){ S.theme=v; LS('hq:theme',v); render(); save(); return; }
   if(a==='nightauto'){ LS('hq:night',pref.night()?null:'1'); render(); return; }
   if(a==='bigtext'){ LS('hq:big',pref.big()?null:'1'); render(); return; }
@@ -4260,11 +4440,11 @@ document.addEventListener('click',async e=>{
     if(modal&&modal.kind==='yeardetail'&&modal.id===id) modal=null;
     deleted('\u201c'+x.title+'\u201d',()=>{ S.yearly.splice(i,0,x); Object.assign(S.yearlyDone,keep); }); return; }
   if(a==='log'){ const now=new Date(); if(noteMsg&&noteKind==='ok') setNote('');
-    modalAt=Date.now(), modal={kind:'log',pickFor:!!btn.dataset.pick,draft:{id:uid(),refId:id||'',subject:btn.dataset.sub||'',date:isoOf(now),
+    modalAt=Date.now(), modal={kind:'log',pickFor:!!btn.dataset.pick,back:(modal&&modal.kind==='card')?modal:undefined,draft:{id:uid(),refId:id||'',subject:btn.dataset.sub||'',date:isoOf(now),
       time:now.toTimeString().slice(0,5),what:btn.dataset.what||'',who:pref.who(),cost:'',doc:'',photos:[]}}; render(); return; }
   if(a==='editlog'){ const l=S.logs.find(x=>x.id===id); if(!l) return;
     const [dpart,tpart]=String(l.date||'').split(' ');
-    modalAt=Date.now(); modal={kind:'log',isEdit:true,draft:{...l,date:dpart||'',time:tpart||'',photos:[...(l.photos||[])]}};
+    modalAt=Date.now(); modal={kind:'log',isEdit:true,back:(modal&&modal.kind==='card')?modal:undefined,draft:{...l,date:dpart||'',time:tpart||'',photos:[...(l.photos||[])]}};
     render(); return; }
   if(a==='dellog'){
     // In the record sheet, the first tap only arms the button — the second deletes.
@@ -4318,7 +4498,7 @@ document.addEventListener('click',async e=>{
     const [ph]=S.photos.splice(i,1), data=photoCache[id], inline=S.photoData&&S.photoData[id];
     const refs=[];
     [...S.tasks,...S.logs,...(S.misc||[])].forEach(o=>{ const j=(o.photos||[]).indexOf(id); if(j>=0){ refs.push([o,j]); o.photos.splice(j,1); } });
-    const profOf=(S.pets||[]).filter(p=>p.photoId===id); profOf.forEach(p=>p.photoId='');
+    const profOf=[...(S.pets||[]),...(S.equipment||[]),...(S.vehicles||[]),...(S.misc||[])].filter(p=>p.photoId===id); profOf.forEach(p=>p.photoId='');
     const specOf=(S.specs||[]).filter(x=>x.photo===id); specOf.forEach(x=>x.photo='');
     if(S.photoData) delete S.photoData[id];
     const th=thumbCache[id]; delete photoCache[id]; delete thumbCache[id];
@@ -4499,6 +4679,39 @@ document.addEventListener('click',async e=>{
   if(a==='newreading'){ modalAt=Date.now(); modal={kind:'fuelread',isNew:true,draft:{id:uid(),date:isoOf(new Date()),pct:'',note:''}}; render(); return; }
   if(a==='fuelread'){ const d=(S.fuel||[]).find(x=>x.id===id); if(!d) return;
     modalAt=Date.now(); modal={kind:'fuelread',draft:{...d,pct:String(d.pct)}}; render(); return; }
+  if(a==='card'){ modalAt=Date.now(); modal={kind:'card',type:v,id}; render(); return; }
+  if(a==='cardgo'){   // run an item action (log a service, add a file...) and come back to the page afterwards
+    const card=modal, t=document.createElement('button');
+    for(const [k,val] of Object.entries(btn.dataset)) if(k!=='act'&&k!=='go') t.dataset[k]=val;
+    t.dataset.act=btn.dataset.go; t.style.display='none'; document.body.appendChild(t); t.click(); t.remove();
+    if(modal&&modal!==card&&!modal.back) modal.back=card;
+    render(); return; }
+  if(a==='cardphoto'){ const card=modal; if(!card||card.kind!=='card') return; const o=cardItem(card.type,card.id); if(!o) return;
+    const where=card.type==='pet'?'Pets':card.type==='misc'?'Misc':'Upkeep';
+    pick(async files=>{ if(!files[0]) return;
+      const pid=await addPhoto(files[0],{caption:o.name||'Photo',where});
+      if(pid){ o.photoId=pid; delete o.noAvatar;
+        if(card.type==='pet') linkPet(pid,o.id);
+        if(card.type==='misc'){ o.photos=o.photos||[]; if(!o.photos.includes(pid)) o.photos.unshift(pid); }
+        save(); }
+      render(); }); return; }
+  if(a==='cardphotorm'){ const o=modal&&cardItem(modal.type,modal.id); if(!o) return;
+    o.photoId=''; o.noAvatar=true; save(); setNote('Profile photo removed. The picture itself is still in Photos.','ok'); render(); return; }
+  if(a==='cardcopy'){ const val=(v||'').trim(); if(!val) return;
+    try{ await navigator.clipboard.writeText(val); setNote('Copied: '+val,'ok'); }catch(e){ setNote('Copying was blocked here — press and hold to copy it.'); }
+    return; }
+  if(a==='cardshare'){ const o=modal&&cardItem(modal.type,modal.id); if(!o) return; const text=cardShareText(modal.type,o);
+    try{ if(navigator.share){ await navigator.share({title:o.name||'House HQ',text}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+    try{ await navigator.clipboard.writeText(text); setNote('Details copied — paste them anywhere.','ok'); }catch(e){ setNote('Sharing was blocked here.'); }
+    return; }
+  if(a==='cardedit'){ const card=modal, t=card.type, cid=card.id;
+    if(t==='contact'||t==='misc'){ const b=document.createElement('button'); b.dataset.act=t; b.dataset.id=cid; b.style.display='none';
+      document.body.appendChild(b); b.click(); b.remove(); if(modal&&modal!==card) modal.back=card; render(); return; }
+    // pets and machines are edited right on their page: every field, part, check and date
+    card.edit=true; card.confirm=false; editing=true; if(t==='pet') openPet=cid;
+    render(); const sh=document.querySelector('#modal .sheet.page'); if(sh) sh.scrollTop=0; return; }
+  if(a==='cardeditdone'){ editing=false; openPet=null; if(modal){ modal.edit=false; modal.confirm=false; } render();
+    const sh=document.querySelector('#modal .sheet.page'); if(sh) sh.scrollTop=0; return; }
   if(a==='sheetdel'){   // one Delete for every sheet: confirm first, then reuse the item's own delete (and its Undo)
     if(modal&&!modal.confirm){ modal.confirm=true; render(); return; }
     modal=(modal&&modal.back)||null;   // close without writing the draft back
