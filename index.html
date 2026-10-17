@@ -72,6 +72,8 @@ const I = {
   paw:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><ellipse cx="12" cy="15.3" rx="4.3" ry="3.4"/><circle cx="6.6" cy="10.4" r="2.3"/><circle cx="10.6" cy="7.3" r="2.3"/><circle cx="15.4" cy="7.3" r="2.3"/><circle cx="19" cy="10.6" r="2.1"/></svg>',
   wrench:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
   msg:'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.4 1.3 4.6 3.4 6.1-.2 1.4-.9 2.7-2 3.6 2.2 0 4.1-.8 5.4-1.9 1 .3 2.1.4 3.2.4 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
+  vet:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v6a5 5 0 0 0 10 0V3"/><path d="M9 14v2a5 5 0 0 0 10 0v-3"/><circle cx="19" cy="11" r="2"/></svg>',
+  scissors:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
   share:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>',
   mowerIcon:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="10" height="6" rx="2"/><line x1="13" y1="9" x2="20" y2="3"/><circle cx="7.5" cy="18" r="2.3"/><circle cx="14.5" cy="18" r="2.3"/></svg>',
   home:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
@@ -1383,7 +1385,6 @@ function recentChanges(n){
     :isReading(f)?'logged the tank gauge at '+num(f.pct)+'%':'logged a fuel delivery'+(f.gallons?' of '+f.gallons+' gallons':'')));
   (S.keyDates||[]).forEach(k=>push(k.at,k.by,'set the date for '+k.title));
   (S.bills||[]).forEach(b=>{ if(!b.auto) push(b.at,b.by,'logged '+money(num(b.amount))+' for '+(((lineOf(b.lineId)||{}).name)||'a bill')+(b.note?' ('+b.note+')':'')); });
-  (S.buy||[]).forEach(b=>{ if(b.bought&&b.boughtAt) push(b.boughtAt,b.boughtBy,'bought '+(b.title||'something')); });
   (S.contacts||[]).forEach(c=>push(c.at,c.by,'added '+(c.name||'a contact')+' to Who to call'));
   (S.files||[]).forEach(f=>push(f.at,f.by,'added '+(f.name||'a file')));
   return out.sort((a,b)=>b.at-a.at).slice(0,n||10);
@@ -1968,6 +1969,13 @@ a.pc-row .pc-v{color:${t.accent}}
 button.pc-avatar{border:0;padding:0;min-height:0;cursor:pointer}
 .pc-phl{display:flex;justify-content:center;gap:20px;margin:0 0 8px}
 .pc-phl button{background:none;border:0;min-height:0;padding:4px;color:${t.accent};font-weight:600;font-size:15px}
+.pc-mini{flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;min-height:0;padding:7px 12px;border-radius:99px;border:1px solid ${t.ink}1F;background:${t.ground};color:${t.accent};font-size:13.5px;font-weight:600}
+.pc-mini.icon{padding:8px;border-radius:50%}
+.pc-rowbtn{flex:1;min-width:0;display:flex;background:none;border:0;padding:0;margin:0;min-height:0;text-align:left;color:${t.ink}}
+.pc-title{font-size:26px;margin:18px 4px 4px;text-align:left}
+.pc-body{padding:16px 18px}
+.pc-body [data-act="done"]{display:none}
+.pc-edit input,.pc-edit select,.pc-edit textarea,.pc-body input,.pc-body select{min-width:0;max-width:100%}
 .pc-pill.on{background:${t.accent};color:#fff;border-color:${t.accent}}
 .pcard.editing .pc-avatar{width:96px;height:96px;font-size:46px}
 .pcard.editing .pc-name{font-size:24px}
@@ -2382,7 +2390,7 @@ function searchAll(ql){
   (S.yearly||[]).forEach(x=>{ if(has(x.title,x.cat,x.notes,x.freq,x.season))
     add('Seasons',x.title,[x.season,x.freq,x.cat],'yeardetail',x.id); });
   (S.logs||[]).forEach(l=>{ if(has(l.subject,l.what,l.who,l.doc,l.cost))
-    add('Service history',l.subject||'Record',[fmtDate(l.date),l.who,l.what],'jump',l.refId||''); });
+    add('Service history',l.subject||'Record',[fmtDate(l.date),l.who,l.what],'editlog',l.id); });
   (S.photos||[]).forEach(p=>{ if(has(p.caption,p.where,p.note))
     add('Photos',p.caption||'Not named yet',[p.where,fmtDate(p.addedAt)],'viewphoto',p.id); });
   (S.contacts||[]).forEach(c=>{ if(has(c.name,c.role,c.note,c.phone))
@@ -2420,8 +2428,6 @@ function searchAll(ql){
   (S.bills||[]).forEach(e=>{ const l=lineOf(e.lineId); const amt=num(e.amount);
     if(has(e.note,l&&l.name,amt.toFixed(2),money(amt)))
       add('Bills',money(amt)+(l?' · '+l.name:''),[fmtDate(e.date),e.note],'spendedit',e.id); });
-  (S.buy||[]).forEach(b=>{ if(has(b.title,b.note))
-    add('Things to buy',b.title,[b.bought?'bought '+fmtDate(b.bought):'not bought yet',b.note],'buyedit',b.id); });
   return out;
 }
 function viewSearch(){
@@ -2579,7 +2585,7 @@ function viewPhotos(){
   const g=openAlbum!==null?albums.find(x=>x.key===openAlbum):null;
   if(openAlbum!==null&&!g) openAlbum=null;     // album emptied or renamed away
   if(g){
-    const pet=['pets','inventory','supplies','misc','service','upkeep'].includes(g.key), room=ROOM_KEYS.includes(g.key);
+    const pet=['pets','inventory','supplies','misc','service','upkeep','contacts'].includes(g.key), room=ROOM_KEYS.includes(g.key);
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="albums">${I.left} Albums</button>
       <div style="flex:1"></div>
@@ -2663,7 +2669,7 @@ function photoGroups(){
 const albumKeyOf=p=>{ const k=((p&&p.where)||'').trim().toLowerCase();
   return k.startsWith('pet: ')?'pets':k.startsWith('inventory: ')?'inventory':k==='sizes'?'supplies'
     :(k.startsWith('service: ')||k==='service records')?'service':k; };
-const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc',service:'Service records',upkeep:'Upkeep'};
+const ALBUM_NAMES={pets:'Pets',inventory:'Inventory',supplies:'Supplies',misc:'Misc',service:'Service records',upkeep:'Upkeep',contacts:'Contacts'};
 const linkPet=(photoId,petId)=>{ const ph=S.photos.find(x=>x.id===photoId); if(ph) ph.petId=petId; };
 function photosAt(key){ return S.photos.filter(p=>albumKeyOf(p)===key).slice().reverse(); } // oldest first
 /* A pet's own photos: linked by id, or (older photos) by their "Pet: name" tag. */
@@ -2739,7 +2745,7 @@ function migrateInventory(st){
   st.misc=st.misc||[];
   for(const x of inv){
     if(st.misc.some(m=>m.id===x.id)) continue;
-    st.misc.push({id:x.id,name:x.title||'',kind:'Belongings',room:x.room||'',brand:'',color:'',code:x.serial||'',details:x.note||'',
+    st.misc.push({id:x.id,name:x.title||x.name||'',kind:'Belongings',room:x.room||'',brand:'',color:'',code:x.serial||'',details:x.note||'',
       store:'',date:x.bought||'',left:'',value:x.value||'',stays:false,photos:[...(x.photos||[])],at:x.at,by:x.by});
     for(const pid of (x.photos||[])){ const ph=(st.photos||[]).find(q=>q.id===pid);
       if(ph&&/^inventory/i.test((ph.where||'').trim())) ph.where='Misc'; }   // their photos join the Misc album
@@ -2912,17 +2918,10 @@ function viewBudget(){
     ${suggest.length&&!catOrganize?`<div class="chips" style="margin-top:10px;flex-wrap:wrap">${suggest.map(n=>`<button class="chip" data-act="quickcat" data-v="${esc(n)}">+ ${esc(n)}</button>`).join('')}</div>`:''}
   </section>
 
-  <section class="grp zone fold ${fo('b.buy')}">${fhead('b.buy','Things to buy',open.length)}${fsum(open.length?open.length+' to buy · '+money(open.reduce((s,b)=>s+num(b.est),0))+' to go':'Nothing waiting')}
-    ${open.map(buyRow).join('')}
-    ${open.length?'':'<p class="hint" style="margin:8px 0">Nothing on the list.</p>'}
-    <button class="btn dash" style="margin-top:10px" data-act="newbuy">${I.plus} Add something to buy</button>
-    ${got.length?`<h4 style="margin:18px 0 4px;font:700 15px ${BODY};color:var(--ink70)">Bought in ${y}</h4>${got.map(buyRow).join('')}`:''}
-  </section>
+
   ${fuelHTML(y)}
-  <section class="grp zone fold ${fo('b.sheets')}">${fhead('b.sheets','Spreadsheets',(S.files||[]).filter(x=>x.cat==='Budget').length)}${fsum((S.files||[]).filter(x=>x.cat==='Budget').map(x=>x.name).join(', ')||'Nothing yet')}
-    ${filesSection('Budget','Nothing yet. Upload a spreadsheet and it opens here as a table, or paste the share link to one you keep in Google Sheets, Excel or OneDrive and read it here too.')}
-  </section>
-  <p class="hint" style="margin-top:12px">Spending is everything you log: bills in each category, things you mark as bought, fuel, and any cost on a service record.</p>`;
+  <p class="hint" style="margin:14px 4px 0">Budget spreadsheets live with every other file: <button class="btn" style="display:inline-flex;width:auto;min-height:0;padding:3px 10px;font-size:13px" data-act="gofiles">House → Files</button></p>
+  <p class="hint" style="margin-top:12px">Spending is everything you log: bills in each category, fuel, and any cost on a service record.</p>`;
 }
 
 /* ---------- Fuel ---------- */
@@ -3069,14 +3068,14 @@ function duesHTML(kind,o,blurb){
     ${dues.map(du=>{ const w=nextDue(du), n=w?daysAway(w):null;
       return `<div style="display:grid;gap:6px;padding:8px 0;border-bottom:1px solid var(--rule)">
         <div style="display:flex;gap:8px;align-items:center">
-          <input data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="title" value="${esc(du.title)}" placeholder="What's due" style="flex:1">
+          <input data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="title" value="${esc(du.title)}" placeholder="What's due" style="flex:1;min-width:0">
           ${w?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="flex:0 0 auto">${n<0?'overdue · ':''}${esc(countdown(w))}</span>`
             :du.doneAt?`<span class="tag link" style="flex:0 0 auto">done</span>`:''}
           ${editing?`<button class="icb" data-act="deldue" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" aria-label="Remove this date">${I.trash}</button>`:''}
         </div>
-        <div style="display:flex;gap:8px">
-          <input type="date" data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="date" value="${esc(du.date)}" style="flex:1">
-          <select data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="every" style="flex:1">${
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="date" data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="date" value="${esc(du.date)}" style="flex:1 1 140px;min-width:0">
+          <select data-act="duef" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}" data-f="every" style="flex:1 1 120px;min-width:0">${
             DUE_EVERY.map(([v,l])=>`<option value="${v}" ${+du.every===v?'selected':''}>${l}</option>`).join('')}</select>
           ${w?`<button class="btn" style="width:auto;flex:0 0 auto;padding:0 14px" data-act="duedone" data-kind="${kind}" data-id="${o.id}" data-did="${du.id}">${I.check} Done</button>`:''}
         </div>
@@ -3116,7 +3115,7 @@ function maintCardsHTML(cfg){
         ${e.checks.map(c=>{
           const on=!!done[e.id+':'+c.id+':'+y];
           return `<div class="row" style="align-items:flex-start">
-            ${checkbox(on,cfg.actToggle,'data-id="'+e.id+'" data-cid="'+c.id+'"',c.title+' on the '+e.name)}
+            ${checkbox(on,cfg.actToggle,'data-id="'+e.id+'" data-cid="'+c.id+'" data-y="'+y+'"',c.title+' on the '+e.name)}
             <div class="body">
               <input data-act="${cfg.actChk}" data-id="${e.id}" data-cid="${c.id}" data-f="title" value="${esc(c.title)}"
                 style="border:0;background:none;padding:0;min-height:0;border-radius:0;font-weight:500;${on?'color:var(--ink70)':''}">
@@ -3139,14 +3138,6 @@ function maintCardsHTML(cfg){
         <h3 style="font:700 17px system-ui;margin:18px 0 6px">Notes</h3>
         <textarea rows="3" data-act="${cfg.actField}" data-id="${e.id}" data-f="notes" placeholder="Quirks, settings, where you bought it, what the repair guy said">${esc(e.notes||'')}</textarea>
 
-        <h3 style="font:700 17px system-ui;margin:18px 0 6px">Documentation</h3>
-        ${filesSection(cfg.filePrefix+e.id,'Nothing yet. The warranty, the receipt, the manual — upload it or paste a link.')}
-
-        ${logHTML(S.logs.filter(l=>l.refId===e.id),false)}
-        <div class="btns">
-          <button class="btn" data-act="log" data-id="${e.id}" data-sub="${esc(e.name)}">${I.doc} Log a service</button>
-          ${editing?`<button class="btn danger" data-act="${cfg.actDel}" data-id="${e.id}">${I.trash} Remove this ${cfg.noun}</button>`:''}
-        </div>
       </div>`:''}
     </div>`;
   }).join('') + (!cfg.noAdd&&(cfg.addAlways||editing)?`<button class="btn${cfg.addAlways?' dash':''}" style="${cfg.addAlways?'margin-top:10px':''}" data-act="${cfg.actAddNew}">${I.plus} ${cfg.addLabel}</button>`:'');
@@ -3186,7 +3177,6 @@ function petCardsHTML(onlyId){
           <input data-act="petf" data-id="${pet.id}" data-f="vetName" value="${esc(pet.vetName)}" placeholder="Vet's name or clinic">
           <input data-act="petf" data-id="${pet.id}" data-f="vetPhone" data-phone="1" value="${esc(pet.vetPhone)}" placeholder="Phone" inputmode="tel" style="flex:0 0 40%">
         </div>
-        ${pet.vetPhone?`<a class="btn" style="margin-top:8px;display:inline-flex;width:auto;gap:6px" href="tel:${esc(telOf(pet.vetPhone))}">${I.phone} Call ${esc(pet.vetName||'the vet')}</a>`:''}
 
         ${duesHTML('pet',pet,'Vaccines, heartworm and flea meds, the dog park renewal — anything with a date.')}
 
@@ -3199,30 +3189,13 @@ function petCardsHTML(onlyId){
         ${pet.specs.length?'':'<p class="hint" style="margin:4px 0">Nothing yet.</p>'}
         <button class="btn dash" style="margin-top:6px" data-act="addpetspec" data-id="${pet.id}">${I.plus} Add a detail</button>
 
-        <h3 style="font:700 17px system-ui;margin:18px 0 6px">Photos</h3>
-        ${pics.length?`<div class="pgrid">${pics.slice(0,6).map(p=>`<div class="pcell">
-          <button class="ph" data-act="viewphoto" data-id="${p.id}" aria-label="Open this photo">${thumbOf(p.id)?`<img src="${thumbOf(p.id)}" alt="">`:I.img}</button>
-        </div>`).join('')}</div>`:'<p class="hint" style="margin:4px 0">No photos yet.</p>'}
-        ${pet.name?`<button class="btn" data-act="snappet" data-id="${pet.id}" data-sub="${esc(pet.name)}">${I.cam} Add a photo of ${esc(pet.name)}</button>`
-          :`<p class="hint" style="margin:4px 0">Give this pet a name above and you can attach photos here.</p>`}
-
-        <h3 style="font:700 17px system-ui;margin:18px 0 6px">Documentation</h3>
-        ${filesSection('pet:'+pet.id,'Nothing yet. Vaccination records, adoption papers, pedigree — upload it or paste a link.')}
-
-        <h3 style="font:700 17px system-ui;margin:18px 0 6px">Vet visits and grooming</h3>
-        ${logHTML(S.logs.filter(l=>l.refId===pet.id),false)}
-        <div class="btns">
-          <button class="btn" data-act="log" data-id="${pet.id}" data-sub="${esc(pet.name)}" data-what="Vet visit">${I.doc} Log a vet visit</button>
-          <button class="btn" data-act="log" data-id="${pet.id}" data-sub="${esc(pet.name)}" data-what="Grooming">${I.doc} Log grooming</button>
-          ${editing?`<button class="btn danger" data-act="delpet" data-id="${pet.id}">${I.trash} Remove${pet.name?' '+esc(pet.name):' this pet'}</button>`:''}
-        </div>
       </div>`:''}
     </div>`;
   }).join('') + (onlyId?'':`<button class="btn dash" style="margin-top:10px" data-act="addpet">${I.plus} Add a pet</button>`);
 }
 /* The full editor for one pet / machine, shown inside its detail page when you tap Edit. */
 function cardEditorHTML(type,o){
-  const y=S.activeYear;
+  const y=new Date().getFullYear();
   if(type==='pet') return petCardsHTML(o.id);
   if(type==='veh') return maintCardsHTML({items:[o], done:S.vehicleDone||{}, y, openId:o.id, noun:'vehicle', noAdd:true,
       actOpen:'vehicle', actField:'veh', actSpec:'vspec', actAddSpec:'addvspec', actDelSpec:'delvspec',
@@ -3289,7 +3262,6 @@ function viewGear(){
       <div style="text-align:center"><b>${y}</b><small>${checks?ticks+' of '+checks+' tune-up checks':'equipment, appliances, pets, vehicles, misc'}</small></div>
       <button data-act="year" data-v="${y+1}" ${y+1>now?'disabled':''} aria-label="Next year">${I.right}</button>
     </div>
-    <button class="btn editbtn ${editing?'on':''}" data-act="edit">${editing?'Done':'Edit'}</button>
   </div>
 
   ${gearZone('equipment','Equipment',eqItems.length,eqItems.map(e=>e.name),
@@ -3333,27 +3305,30 @@ function viewHouse(){
   const yd=seasonalDone(y);
 
   const nameList=a=>a.filter(Boolean).join(', ');
-  const nextKd=(()=>{ const t=today0(), c=(S.keyDates||[]).map(k=>({k,w:nextOccur(k)})).filter(x=>x.w&&x.w>=t).sort((a,b)=>a.w-b.w)[0];
-    return c?`Next: ${c.k.title} · ${fmtDate(isoOf(c.w))}`:((S.keyDates||[]).length?`${S.keyDates.length} dates`:'No dates yet'); })();
+  const allDates=[...(S.keyDates||[]).map(k=>({t:k.title,w:nextOccur(k)})),...itemDates().map(r=>({t:r.o.name+' — '+r.du.title,w:r.w}))];
+  const nextKd=(()=>{ const t=today0(), c=allDates.filter(x=>x.w&&x.w>=t).sort((a,b)=>a.w-b.w)[0];
+    return c?`Next: ${c.t} · ${fmtDate(isoOf(c.w))}`:(allDates.length?`${allDates.length} dates`:'No dates yet'); })();
   const lastLog=(S.logs||[]).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
   const nFiles=c=>(S.files||[]).filter(f=>f.cat===c).length;
   return `<section class="zone fold ${fo('h.name')}">${fhead('h.name','Property name')}${fsum(S.propertyName||'Not named yet')}
   <input data-act="pname" value="${esc(S.propertyName)}" placeholder="Name this place"></section>
 
-  <section class="zone fold ${fo('h.supplies')}">${fhead('h.supplies','Supplies to reorder',S.specs.length)}${fsum(nameList(S.specs.map(x=>x.k))||'Nothing listed yet')}
-  <p class="hint">Filters, salt, pads, bulbs — anything you buy again and again, with the exact size, style or part number so you pick up the right one. Tap one to read it in full, edit it, or add a photo.</p>
+  <section class="zone fold ${fo('h.supplies')}">${fhead('h.supplies','Supplies to reorder',S.specs.length)}${fsum([S.specs.filter(x=>x.low).length?S.specs.filter(x=>x.low).length+' to buy':'',nameList(S.specs.map(x=>x.k))].filter(Boolean).join(' · ')||'Nothing listed yet')}
+  <p class="hint">Filters, salt, pads, bulbs — anything you buy, with the exact size, style or part number so you pick up the right one. Mark one <b>Need to buy</b> and it stays flagged until you get it.</p>
+  ${S.specs.some(x=>x.low)?`<p class="hint" style="margin:-4px 0 8px;font-weight:600;color:var(--ink)">To buy: ${esc(S.specs.filter(x=>x.low).map(x=>x.k||'Unnamed').join(', '))}</p>`:''}
   ${S.specs.map(s=>{ const ph=s.photo&&S.photos.some(p=>p.id===s.photo)?s.photo:'';
     return `<button class="sizerow" data-act="specopen" data-sid="${s.id}">
     <span class="spthumb ${ph?'':'add'}" ${ph?`data-thumb="${ph}"`:''}>${ph?(thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img):I.cam}</span>
-    <span class="sztext"><b>${esc(s.k)||'Unnamed'}</b>
+    <span class="sztext"><b>${esc(s.k)||'Unnamed'}${s.low?' <span class="tag warn" style="margin-left:6px;vertical-align:1px">Need to buy</span>':''}</b>
       <span class="szv">${(s.v||'').trim()?esc(s.v):'<i>Nothing entered yet</i>'}</span>
-      ${(s.note||'').trim()?`<span class="szn">${esc(s.note)}</span>`:''}</span>
+      ${(s.note||'').trim()?`<span class="szn">${esc(s.note)}</span>`:''}
+      ${supplyOwner(s)?`<span class="szn">For the ${esc(supplyOwner(s).name)}</span>`:''}</span>
     <span class="achev">${I.right}</span></button>`; }).join('')}
   ${S.specs.length?'':'<p class="hint" style="margin-top:8px">Nothing listed yet. Add the filters, salt and other refills you buy again.</p>'}
   <button class="btn dash" style="margin-top:10px" data-act="addspec">${I.plus} Add a supply</button></section>
 
-  <section class="zone fold ${fo('h.keydates')}">${fhead('h.keydates','Key dates',(S.keyDates||[]).length)}${fsum(nextKd)}
-  <p class="hint">Closing, renewals, the tax bill, the three-year septic clock. Anything with a date shows how long you have and goes into the calendar export.</p>
+  <section class="zone fold ${fo('h.keydates')}">${fhead('h.keydates','Key dates',allDates.length)}${fsum(nextKd)}
+  <p class="hint">Every date in one place: the house's (closing, the tax bill, the septic clock) and your things' (warranties, registration, vaccines). Each shows how long you have and goes into the calendar export.</p>
   ${(S.keyDates||[]).map(k=>{ const when=nextOccur(k), n=when?daysAway(when):null;
     return `<div class="row">
       <button class="body" data-act="keydate" data-id="${k.id}">
@@ -3362,13 +3337,22 @@ function viewHouse(){
       </button>
       ${when?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="align-self:center">${esc(countdown(when))}</span>`:''}
     </div>`; }).join('')}
+  ${(()=>{ const rows=itemDates(); return rows.length?`<h3 class="sub">On your appliances, vehicles and pets</h3>`+rows.map(({kind,o,du,w})=>{ const n=w?daysAway(w):null;
+      return `<div class="row"><button class="body" data-act="card" data-v="${kind}" data-id="${o.id}">
+        <div class="t">${esc(o.name)} — ${esc(du.title)}</div>
+        <div class="m">${esc([w?fmtDate(isoOf(w)):(du.doneAt?'done '+fmtDate(du.doneAt):'no date set'),+du.every?dueEveryWord(du.every).toLowerCase():''].filter(Boolean).join(' · '))}</div></button>
+        ${w?`<span class="tag ${n<0?'warn':n<=30?'':'link'}" style="align-self:center">${esc(countdown(w))}</span>`:''}</div>`; }).join(''):''; })()}
   <button class="btn dash" style="margin-top:10px" data-act="newkeydate">${I.plus} Add a date</button></section>
 
-  <section class="zone fold ${fo('h.papers')}">${fhead('h.papers','Plans and papers')}${fsum(nFiles('Plans')+' plans · '+nFiles('Papers')+' papers')}
+  <section class="zone fold ${fo('h.papers')}">${fhead('h.papers','Files',(S.files||[]).length)}${fsum([nFiles('Plans')+' plans',nFiles('Papers')+' papers',nFiles('Budget')+' spreadsheets',attachedFiles().length+' on your things'].join(' · '))}
+  <p class="hint">Every file in one place. Ones attached to an appliance, pet, vehicle, misc item or bill also show on that thing's page.</p>
   <h3 class="sub">Blueprints and layouts</h3>
   ${filesSection('Plans','Nothing yet. Upload the blueprints, the plat survey, a room layout — anything you want on hand.')}
   <h3 class="sub">Papers</h3>
-  ${filesSection('Papers','Nothing yet. The deed, the well report, warranties, manuals.')}</section>
+  ${filesSection('Papers','Nothing yet. The deed, the well report, warranties, manuals.')}
+  <h3 class="sub">Spreadsheets</h3>
+  ${filesSection('Budget','Nothing yet. Upload a spreadsheet and it opens here as a table, or paste the share link to one in Google Sheets, Excel or OneDrive.')}
+  ${attachedFiles().length?`<h3 class="sub">On your things</h3>`+attachedFiles().map(f=>`<div class="m" style="margin:10px 2px 2px;font-weight:600">${esc(catLabel(f.cat)||'Attached')}</div>${fileRow(f)}`).join(''):''}</section>
 
   <section class="zone fold ${fo('h.who')}">${fhead('h.who','Who to call',S.contacts.length)}${fsum(nameList(S.contacts.map(c=>c.name))||'Nobody yet')}
   ${S.contacts.map(c=>`<div class="row">
@@ -3488,6 +3472,9 @@ function render(){
   if((S.inventory||[]).length&&migrateInventory(S)) saveSoon();   // an older phone sent inventory: fold it into Misc
   { const ae=document.activeElement; if(!(ae&&ae.dataset&&ae.dataset.phone)&&fixPhones(S)) saveSoon(); }   // a number typed on an older phone gets the same style
   if((S.budget||[]).some(l=>l.entries&&l.entries.length)&&migrateBills(S)) saveSoon();   // same for bills kept inside a category
+  if((S.buy||[]).length&&migrateBuy(S)) saveSoon();
+  if((S.specs||[]).some(sp=>!sp.linkChecked)&&linkSupplies(S)) saveSoon();
+  if((S.yearly||[]).some(x=>!x.linkChecked)&&linkSeasonal(S)) saveSoon();   // new seasonal items find their tune-up check   // new supplies (from either phone) find their appliance
   if(!VIEWS[tab]||(tab==='list'&&!setupOpen())) tab='seasons';
   applyTheme(); renderHeader();
   const searching=searchOpen&&q.trim();
@@ -3518,6 +3505,105 @@ function itemPhotoId(type,o){
   return '';
 }
 const thumbDot=id=>id?`<span class="petav" data-thumb="${id}">${thumbOf(id)?`<img src="${thumbOf(id)}" alt="">`:''}</span>`:'';
+/* Does a contact belong in the next owner's pack? You can say so on the contact; otherwise family, pet care and
+   other personal numbers stay out, and the trades and utilities go in. */
+const PERSONAL_RX=/\b(vets?|veterinar\w*|animal|groom\w*|kennel|boarding|pet|dog|cat|family|dad|mom|mother|father|brother|sister|son|daughter|wife|husband|aunt|uncle|grandma|grandpa|cousin|friend|in-?laws?|babysit\w*|doctor|dentist|pediatric\w*|school|work|boss)\b/i;
+function handoffContact(c){
+  if(c.handoff===true) return true; if(c.handoff===false) return false;
+  if(PERSONAL_RX.test((c.role||'')+' '+(c.name||''))) return false;
+  const digits=x=>String(x||'').replace(/\D/g,'');
+  if((S.pets||[]).some(p=>(p.vetPhone&&digits(p.vetPhone)===digits(c.phone))||(p.vetName&&(p.vetName||'').trim().toLowerCase()===(c.name||'').trim().toLowerCase()))) return false;
+  return true;
+}
+/* ---------- Supplies <-> parts: a supply can be for an appliance / piece of equipment / vehicle. Linked, it is also
+   a part on that item, and its size or part number is kept the same in both places. ---------- */
+function nameAliases(name){ const n=(name||'').toLowerCase().trim(); const out=[n];
+  const AL={refrigerator:['fridge'],fridge:['refrigerator'],'air conditioner':['ac','a/c'],'water softener':['softener'],'well pump':['well'],'dehumidifier':[],'sump pump':['sump']};
+  for(const [k,v] of Object.entries(AL)) if(n.includes(k)) out.push(...v);
+  return out.filter(x=>x.length>=2).sort((a,b)=>b.length-a.length); }
+function partNameFor(supplyName,ownerName){ let n=(supplyName||'').trim(); const low=n.toLowerCase();
+  for(const al of nameAliases(ownerName)){ const i=low.indexOf(al); if(i>=0){ n=(n.slice(0,i)+n.slice(i+al.length)).replace(/\s+/g,' ').trim(); break; } }
+  n=n||supplyName||'Part'; return n.charAt(0).toUpperCase()+n.slice(1); }
+function supplyOwner(sp){ if(!sp||!sp.eqId) return null; return (S.equipment||[]).find(x=>x.id===sp.eqId)||(S.vehicles||[]).find(x=>x.id===sp.eqId)||null; }
+const supplyOfPart=(ownerId,partId)=>(S.specs||[]).find(sp=>sp.eqId===ownerId&&sp.partId===partId);
+function linkSupplyToOwner(sp){   // make sure the item has the matching part, and the two agree on the size
+  const o=supplyOwner(sp); if(!o) return null; o.specs=o.specs||[];
+  let part=o.specs.find(x=>x.id===sp.partId);
+  if(!part){ const pn=partNameFor(sp.k,o.name).toLowerCase();
+    part=o.specs.find(x=>{ const k=(x.k||'').toLowerCase().trim(); return k&&(k===pn||pn.includes(k)||k.includes(pn))&&!(S.specs||[]).some(o2=>o2!==sp&&o2.eqId===o.id&&o2.partId===x.id); });
+    if(!part){ part={id:'sp_'+sp.id,k:partNameFor(sp.k,o.name),v:sp.v||''}; o.specs.push(part); }
+    sp.partId=part.id; }
+  if((sp.v||'')!==(part.v||'')){ if((sp.v||'').trim()) part.v=sp.v; else sp.v=part.v||''; }
+  return part; }
+function linkSupplies(st){   // once per supply: match it to an item by name ("Furnace filter" -> the Furnace)
+  let n=0; const owners=[...(st.equipment||[]),...(st.vehicles||[])];
+  for(const sp of (st.specs||[])){ if(sp.linkChecked) continue; sp.linkChecked=true; n++;
+    if(sp.eqId) continue; const name=(sp.k||'').toLowerCase(); if(!name.trim()) continue;
+    let best=null, bestLen=0;
+    for(const o of owners) for(const al of nameAliases(o.name)){ if(al.length<3) continue;
+      const rx=new RegExp('(^|[^a-z])'+al.replace(/[.*+?^${}()|[\]\\/]/g,'\\$&')+'([^a-z]|$)');
+      if(rx.test(name)&&al.length>bestLen){ best=o; bestLen=al.length; } }
+    if(!best) continue;
+    sp.eqId=best.id; sp.partId=''; linkSupplyToOwner(sp); }
+  return n; }
+/* ---------- Seasonal tasks <-> tune-up checks: a seasonal item can be linked to an item's check; ticking either
+   ticks the other for that year. ---------- */
+function linkTarget(x){ if(!x||!x.linkId) return null;
+  const o=x.linkKind==='veh'?(S.vehicles||[]).find(v=>v.id===x.linkId):(S.equipment||[]).find(e=>e.id===x.linkId);
+  const c=o&&(o.checks||[]).find(c=>c.id===x.linkCid); return c?{o,c,map:x.linkKind==='veh'?'vehicleDone':'equipDone'}:null; }
+function syncFromSeasonal(x,Y){ const t=linkTarget(x); if(!t) return; S[t.map]=S[t.map]||{};
+  const key=t.o.id+':'+t.c.id+':'+Y, ticked=occurrences(x,Y).map(o=>S.yearlyDone[o.key]).filter(Boolean);
+  if(ticked.length){ if(!S[t.map][key]) S[t.map][key]=ticked[ticked.length-1]; } else delete S[t.map][key]; }
+function syncFromCheck(kind,oid,cid,Y){ const map=kind==='veh'?'vehicleDone':'equipDone', val=(S[map]||{})[oid+':'+cid+':'+Y];
+  for(const x of (S.yearly||[])){ if(x.linkId!==oid||x.linkCid!==cid) continue;
+    const ticked=occurrences(x,Y).filter(o=>S.yearlyDone[o.key]);
+    if(val){ if(!ticked.length) S.yearlyDone[currentOcc(x,Y).key]=val; }
+    else if(ticked.length) delete S.yearlyDone[ticked[ticked.length-1].key]; } }
+function linkSeasonal(st){   // once per seasonal item: "Furnace tune-up" -> the Furnace's "Tune-up" check (made if missing)
+  let n=0;
+  for(const x of (st.yearly||[])){ if(x.linkChecked) continue; x.linkChecked=true; n++; if(x.linkId) continue;
+    const title=(x.title||'').toLowerCase().trim(); let best=null,bestLen=0,rem='';
+    for(const o of (st.equipment||[])) for(const al of nameAliases(o.name)){ if(al.length<3) continue;
+      if(title.startsWith(al+' ')&&al.length>bestLen){ best=o; bestLen=al.length; rem=(x.title||'').trim().slice(al.length).trim(); } }
+    if(!best||!rem) continue;
+    best.checks=best.checks||[]; const rl=rem.toLowerCase();
+    let c=best.checks.find(c=>{ const t=(c.title||'').toLowerCase().trim(); return t&&(t===rl||rl.includes(t)||t.includes(rl))&&!(st.yearly||[]).some(y2=>y2!==x&&y2.linkId===best.id&&y2.linkCid===c.id); });
+    if(!c){ c={id:'yk_'+x.id,title:rem.charAt(0).toUpperCase()+rem.slice(1),freq:x.freq||''}; best.checks.push(c); }
+    x.linkKind='eq'; x.linkId=best.id; x.linkCid=c.id;
+    st.equipDone=st.equipDone||{};   // bring over the ticks it already has
+    for(const k in (st.yearlyDone||{})) if(k.startsWith(x.id+':')){ const key=best.id+':'+c.id+':'+k.split(':')[1]; if(!st.equipDone[key]) st.equipDone[key]=st.yearlyDone[k]; } }
+  return n; }
+function linkOptions(d){
+  const cur=d.linkId?(d.linkKind||'eq')+'|'+d.linkId+'|'+d.linkCid:'';
+  const grp=(kind,o)=>(o.checks||[]).length?`<optgroup label="${esc(o.name||'Unnamed')}">${o.checks.map(c=>{ const v=kind+'|'+o.id+'|'+c.id;
+    return `<option value="${v}" ${v===cur?'selected':''}>${esc(c.title||'Check')}</option>`; }).join('')}</optgroup>`:'';
+  return `<option value="">Not linked</option>`+(S.equipment||[]).map(o=>grp('eq',o)).join('')+(S.vehicles||[]).map(o=>grp('veh',o)).join(''); }
+/* Every date on an item (warranty ends, registration, vaccines), for the Key dates list. */
+function itemDates(){ const rows=[];
+  for(const [kind,list] of [['eq',S.equipment||[]],['veh',S.vehicles||[]],['pet',S.pets||[]]]) for(const o of list) for(const du of (o.dues||[])){
+    if(!(du.title||'').trim()) continue; rows.push({kind,o,du,w:nextDue(du)}); }
+  return rows.sort((a,b)=>(a.w?a.w.getTime():9e15)-(b.w?b.w.getTime():9e15)); }
+function forOptions(cur){
+  const grp=(label,kind,items)=>items.length?`<optgroup label="${esc(label)}">${items.map(x=>{ const v=kind+'|'+x.id; return `<option value="${v}" ${v===cur?'selected':''}>${esc(x.name||'Unnamed')}</option>`; }).join('')}</optgroup>`:'';
+  const eq=S.equipment||[];
+  return `<option value="">The house</option>`+grp('Appliances','eq',eq.filter(e=>e.cat==='appliance'))+grp('Equipment','eq',eq.filter(e=>e.cat!=='appliance'))
+    +grp('Vehicles','veh',S.vehicles||[])+grp('Pets','pet',S.pets||[]); }
+/* Things to buy is gone: bought ones become bills in their category (so the spending stays), the rest become
+   supplies marked "Need to buy". Runs for anything an older phone still sends. */
+function migrateBuy(st){ if(!(st.buy||[]).length) return 0; st.bills=st.bills||[]; st.specs=st.specs||[];
+  for(const b of st.buy){
+    if(b.bought){ if(!st.bills.some(x=>x.id==='buy_'+b.id)) st.bills.push({id:'buy_'+b.id,lineId:b.lineId||'',date:b.bought,amount:num(b.paid||b.est),
+        note:(b.title||'Purchase')+(b.note?' — '+b.note:''),at:b.boughtAt||Date.now(),by:b.boughtBy||''}); }
+    else { const extra=[b.note,num(b.est)?'about '+money(num(b.est)):'',b.url].filter(Boolean).join(' · ');
+      const same=st.specs.find(x=>(x.k||'').trim().toLowerCase()===(b.title||'').trim().toLowerCase());
+      if(same){ same.low=true; if(extra&&!(same.note||'').includes(extra)) same.note=[same.note,extra].filter(Boolean).join(' · '); }   // already a supply: just flag it
+      else if(!st.specs.some(x=>x.id==='buy_'+b.id)) st.specs.push({id:'buy_'+b.id,k:b.title||'Untitled',v:'',low:true,note:extra,photo:''}); } }
+  const n=st.buy.length; st.buy=[]; return n; }
+const attachedFiles=()=>(S.files||[]).filter(f=>/^(eq|veh|pet|misc|bill|fuel):/.test(f.cat||'')).sort((a,b)=>(catLabel(a.cat)||'').localeCompare(catLabel(b.cat)||''));
+function ownerOptions(cur){
+  const grp=(label,items)=>items.length?`<optgroup label="${esc(label)}">${items.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(x.name||'Unnamed')}</option>`).join('')}</optgroup>`:'';
+  const eq=S.equipment||[];
+  return grp('Appliances',eq.filter(e=>e.cat==='appliance'))+grp('Equipment',eq.filter(e=>e.cat!=='appliance'))+grp('Vehicles',S.vehicles||[]); }
 function cardItem(type,id){
   return type==='contact'?(S.contacts||[]).find(x=>x.id===id):type==='pet'?(S.pets||[]).find(x=>x.id===id)
     :type==='veh'?(S.vehicles||[]).find(x=>x.id===id):type==='misc'?(S.misc||[]).find(x=>x.id===id):(S.equipment||[]).find(x=>x.id===id);
@@ -3534,7 +3620,7 @@ function cardShareText(type,o){
 function cardHTML(){
   const m=modal, o=cardItem(m.type,m.id);
   if(!o){ modal=null; return ''; }
-  const y=S.activeYear, isVeh=m.type==='veh', isEq=m.type==='eq';
+  const y=new Date().getFullYear(), isVeh=m.type==='veh', isEq=m.type==='eq';
   const act=a=>a.href!==undefined
     ?`<a class="pc-act" ${a.href?`href="${esc(a.href)}"`:''} ${a.ext?'target="_blank" rel="noopener"':''} ${a.href?'':'aria-disabled="true"'}><span class="pc-ic">${a.icon}</span><span class="pc-al">${esc(a.label)}</span></a>`
     :`<button class="pc-act" data-act="${a.act}" ${a.attrs||''} ${a.off?'aria-disabled="true" disabled':''}><span class="pc-ic">${a.icon}</span><span class="pc-al">${esc(a.label)}</span></button>`;
@@ -3544,11 +3630,14 @@ function cardHTML(){
       :x.act?`<button class="pc-row" data-act="${x.act}" ${x.attrs||''}>${inner}</button>`:`<div class="pc-row">${inner}</div>`; };
   const group=(title,rows)=>{ const r=(rows||[]).filter(Boolean).join(''); return r?`${title?`<div class="pc-gt">${esc(title)}</div>`:''}<div class="pc-group">${r}</div>`:''; };
   const dueLine=du=>{ const w=nextDue(du); return w?`${fmtDate(isoOf(w))} · ${countdown(w)}${+du.every?' · '+dueEveryWord(du.every).toLowerCase():''}`:(du.doneAt?'done '+fmtDate(du.doneAt):''); };
-  const dues=x=>(x.dues||[]).filter(du=>(du.title||'').trim()).map(du=>row(du.title,dueLine(du)));
+  const dues=x=>(x.dues||[]).filter(du=>(du.title||'').trim()).map(du=>`<div class="pc-row"><span class="pc-tx"><span class="pc-l">${esc(du.title)}</span><span class="pc-v">${esc(dueLine(du)||'no date yet')}</span></span>
+      ${du.date?`<button class="pc-mini" data-act="duedone" data-kind="${m.type}" data-id="${x.id}" data-did="${du.id}">${I.check} Done</button>`:''}</div>`);
   const recs=id=>{ const L=(S.logs||[]).filter(l=>l.refId===id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     return L.slice(0,5).map(l=>row(fmtDate(l.date),[l.what||l.subject,l.who,num(l.cost)?money(num(l.cost)):''].filter(Boolean).join(' · ')||'Record',
       {act:'cardgo',attrs:`data-go="editlog" data-id="${l.id}"`,trail:I.right})).concat(L.length>5?[row('',`${L.length-5} more in Service history`)]:[]); };
-  const docs=cat=>(S.files||[]).filter(f=>f.cat===cat).map(f=>row(catLabel(f.cat)?'document':'document',f.name,{act:'openfile',attrs:`data-id="${f.id}"`,trail:I.doc}));
+  const fileKind=f=>f.stored?(((f.name||'').split('.').pop()||'').length<=4&&(f.name||'').includes('.')?(f.name.split('.').pop().toUpperCase()+' file'):'file'):'link';
+  const docs=cat=>(S.files||[]).filter(f=>f.cat===cat).map(f=>`<div class="pc-row"><button class="pc-rowbtn" data-act="openfile" data-id="${f.id}"><span class="pc-tx"><span class="pc-l">${esc(fileKind(f))}</span><span class="pc-v" style="color:var(--accent)">${esc(f.name)}</span></span></button>
+      <button class="pc-mini icon" data-act="cardgo" data-go="fileedit" data-id="${f.id}" aria-label="Rename or delete">${I.pencil}</button></div>`);
   const strip=ids=>ids.length?`<div class="pc-group pc-photos"><div class="pc-strip">${ids.map(id=>`<button class="pc-ph" data-act="cardgo" data-go="viewphoto" data-id="${id}" data-thumb="${id}">${thumbOf(id)?`<img src="${thumbOf(id)}" alt="">`:I.img}</button>`).join('')}</div></div>`:'';
   const initial=n=>esc(((n||'?').trim()[0]||'?').toUpperCase());
   const avatar=ph=>{ const inner=ph&&thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:initial(o.name||o.title);
@@ -3559,21 +3648,21 @@ function cardHTML(){
   const photoLinks=ph=>`<div class="pc-phl">${ph?`<button data-act="cardphoto">Change photo</button><button data-act="cardphotorm">Remove photo</button>`:`<button data-act="cardphoto">Add photo</button>`}</div>`;
   let photo='', sub='', acts=[], body='', delAct='', noun='';
   if(m.type==='contact'){
-    const tel=o.phone?telOf(o.phone):''; sub=o.role||''; delAct='delcontact'; noun='contact';
+    const tel=o.phone?telOf(o.phone):''; sub=o.role||''; delAct='delcontact'; noun='contact'; photo=itemPhotoId('contact',o);
     acts=[{label:'message',icon:I.msg,href:tel?'sms:'+tel.replace(/,.*$/,''):''},{label:'call',icon:I.phone,href:tel?'tel:'+tel:''},
           {label:'website',icon:I.link,href:o.url||'',ext:true},{label:'copy',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.phone||'')}"`,off:!o.phone}];
     body=group('',[row('phone',o.phone,{href:tel?'tel:'+tel:'',trail:I.phone})])+group('',[row('website',o.url,{href:o.url,ext:true,trail:I.link})])
         +group('',[row('Notes',o.note,{keep:true})]);
   } else if(m.type==='pet'){
     const tel=o.vetPhone?telOf(o.vetPhone):''; photo=petAvatarId(o); sub=o.breed||''; delAct='delpet'; noun='pet';
-    acts=[{label:'call vet',icon:I.phone,href:tel?'tel:'+tel:''},{label:'vet visit',icon:I.doc,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Vet visit"`},
-          {label:'grooming',icon:I.doc,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Grooming"`},{label:'add photos',icon:I.cam,act:'cardgo',attrs:`data-go="snappet" data-id="${o.id}"`}];
+    acts=[{label:'call vet',icon:I.phone,href:tel?'tel:'+tel:''},{label:'vet visit',icon:I.vet,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Vet visit"`},
+          {label:'grooming',icon:I.scissors,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Grooming"`},{label:'add photos',icon:I.cam,act:'cardgo',attrs:`data-go="snappet" data-id="${o.id}"`}];
     body=group('Vet',[row('vet',o.vetName),row('vet phone',o.vetPhone,{href:tel?'tel:'+tel:'',trail:I.phone})])
-        +group('Details',(o.specs||[]).map(x=>row(x.k||'Detail',x.v)))+group('Dates',dues(o))+group('Records',recs(o.id))
+        +group('Details',(o.specs||[]).map(x=>row(x.k||'Detail',x.v)))+group('Dates',dues(o))+group('Service history',recs(o.id))
         +(petPhotos(o).length?`<div class="pc-gt">Photos</div>${strip(petPhotos(o).slice(-12).reverse().map(x=>x.id))}`:'')+group('Documents',docs('pet:'+o.id));
   } else if(m.type==='misc'){
     photo=itemPhotoId('misc',o); sub=[o.kind,o.room].filter(Boolean).join(' · '); delAct='delmisc'; noun='item';
-    acts=[{label:'copy code',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.code||'')}"`,off:!o.code},{label:'share',icon:I.share,act:'cardshare'}];
+    acts=[{label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="misc:${o.id}"`}];
     body=group('',[row('brand',o.brand),row('color or style',o.color),row('code, model or serial',o.code,{act:'cardcopy',attrs:`data-v="${esc(o.code||'')}"`,trail:I.doc})])
         +group('Bought',[row('at',o.store),row('date',o.date?fmtDate(o.date):''),row('value',num(o.value)?money(num(o.value)):''),row('left over',o.left)])
         +group('',[row('Details',o.details)])+group('',[row('handoff pack',o.stays===false?'Not included — this is a belonging':'Included — it stays with the house')])
@@ -3583,13 +3672,15 @@ function cardHTML(){
     sub=[[o.make,o.model].filter(Boolean).join(' '),isVeh?'Vehicle':o.cat==='appliance'?'Appliance':'Equipment'].filter(Boolean).join(' · ');
     delAct=isVeh?'delvehicle':'delequip'; noun=isVeh?'vehicle':o.cat==='appliance'?'appliance':'equipment';
     acts=[{label:'log service',icon:I.wrench,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}"`},
-          {label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="${isVeh?'veh':'eq'}:${o.id}"`},
-          {label:isVeh?'copy VIN':'copy serial',icon:I.doc,act:'cardcopy',attrs:`data-v="${esc(o.serial||'')}"`,off:!o.serial},{label:'share',icon:I.share,act:'cardshare'}];
+          {label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="${isVeh?'veh':'eq'}:${o.id}"`}];
     const checks=(o.checks||[]).map(c=>{ const k=o.id+':'+c.id+':'+y, on=!!done[k], left=isVeh&&typeof milesLeft==='function'?milesLeft(o,c):null;
-      return `<div class="pc-row pc-check">${checkbox(on,tog,'data-id="'+o.id+'" data-cid="'+c.id+'"',c.title+' on the '+o.name)}
-        <span class="pc-tx"><span class="pc-v">${esc(c.title)}</span><span class="pc-l">${esc([on?tickWords(done[k]):'not yet in '+y,c.freq,left!==null&&left!==undefined?(left<=0?'due now by mileage':left+' miles to go'):''].filter(Boolean).join(' · '))}</span></span></div>`; });
+      return `<div class="pc-row pc-check">${checkbox(on,tog,'data-id="'+o.id+'" data-cid="'+c.id+'" data-y="'+y+'"',c.title+' on the '+o.name)}
+        <span class="pc-tx"><span class="pc-v">${esc(c.title)}</span><span class="pc-l">${esc([on?tickWords(done[k]):'not yet in '+y,c.freq,(S.yearly||[]).some(x=>x.linkId===o.id&&x.linkCid===c.id)?'also on Seasons':'',left!==null&&left!==undefined?(left<=0?'due now by mileage':left+' miles to go'):''].filter(Boolean).join(' · '))}</span></span></div>`; });
     body=group('',[row('make',o.make),row('model',o.model),row(isVeh?'VIN or plate':'serial number',o.serial,{act:'cardcopy',attrs:`data-v="${esc(o.serial||'')}"`,trail:I.doc}),isVeh?row('mileage',o.odo?Number(num(o.odo)).toLocaleString()+' mi':''):''])
-        +group('Parts and supplies',(o.specs||[]).map(x=>row(x.k||'Part',x.v)))+(checks.length?`<div class="pc-gt">Tune-up checks · ${y}</div><div class="pc-group">${checks.join('')}</div>`:'')
+        +group('Parts and supplies',(o.specs||[]).filter(x=>(x.k||'').trim()||(x.v||'').trim()).map(x=>{ const ls=supplyOfPart(o.id,x.id);
+          return `<div class="pc-row"><span class="pc-tx"><span class="pc-l">${esc(x.k||'Part')}</span><span class="pc-v">${esc(x.v||'—')}</span></span>
+            ${ls?`<button class="pc-mini" data-act="cardgo" data-go="specopen" data-id="${ls.id}" data-sid="${ls.id}">${I.check} In Supplies</button>`
+                :`<button class="pc-mini" data-act="partreorder" data-kind="${m.type}" data-id="${o.id}" data-sid="${x.id}">${I.plus} Reorder</button>`}</div>`; }))+(checks.length?`<div class="pc-gt">Tune-up checks · ${y}</div><div class="pc-group">${checks.join('')}</div>`:'')
         +group('Dates',dues(o))+group('Service history',recs(o.id))+group('Documents',docs((isVeh?'veh:':'eq:')+o.id))+group('',[row('Notes',o.notes)]);
   }
   if(m.edit&&m.type!=='contact'&&m.type!=='misc') return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard editing">
@@ -3668,8 +3759,7 @@ function modalHTML(){
       ${callRow(t)}
       ${fixURL(t.url)?`<a href="${esc(fixURL(t.url))}" target="_blank" rel="noreferrer">Open the reference</a>`:''}
       ${logHTML(S.logs.filter(l=>l.refId===t.id),false)}
-      <button class="btn" data-act="log" data-id="${t.id}" data-sub="${esc(t.title)}">${I.doc} Record when this was done</button>
-      <button class="btn" data-act="edittask" data-id="${t.id}">${I.pencil} Edit this item</button>`);
+      <button class="btn" data-act="log" data-id="${t.id}" data-sub="${esc(t.title)}">${I.doc} Record when this was done</button>`,false,{page:{edit:'edittask',id:t.id}});
   }
   if(modal.kind==='yearitem'){
     const d=modal.draft, ms=seasonMonths(d.season);
@@ -3686,6 +3776,8 @@ function modalHTML(){
         <input data-m="cat" value="${esc(d.cat)}" placeholder="Category">
       </div>
       ${contactPick(d)}
+      <label class="lbl">Linked to a tune-up check<select data-m="linkSel">${linkOptions(d)}</select></label>
+      <p class="hint" style="margin:-4px 0 0">Linked, ticking this or the appliance's check ticks both.</p>
       <textarea rows="3" data-m="notes" placeholder="Notes">${esc(d.notes)}</textarea>
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="sheetdel" data-v="delyear" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this item'}</button>`}`,true);
@@ -3698,6 +3790,7 @@ function modalHTML(){
         <span class="tag">${esc(x.season)}${x.month?', '+MONTHS[x.month-1]:''}</span>
         <span class="hint" style="margin:0">${[x.cat,x.freq].filter(Boolean).map(esc).join(' · ')}</span></div>
       ${x.notes?`<p style="line-height:1.55;color:var(--ink70);margin:0">${esc(x.notes)}</p>`:''}
+      ${(()=>{ const t=linkTarget(x); return t?`<p class="hint" style="margin:6px 0 0">Linked to the ${esc(t.o.name)}\u2019s \u201c${esc(t.c.title)}\u201d check. Ticking one ticks the other.</p>`:''; })()}
       ${os.length>1
         ? `<h3 class="sub" style="margin:10px 0 2px">Each time it comes round in ${y}</h3>`
           +os.map(o=>`<div class="row" style="align-items:center">
@@ -3708,8 +3801,7 @@ function modalHTML(){
         <div class="body" style="font-weight:500">${on?'Done in '+y+(tickWords(S.yearlyDone[yearKey(x.id,y)])?' — '+esc(tickWords(S.yearlyDone[yearKey(x.id,y)])):''):'Not done yet in '+y}</div></div>`}
       ${callRow(x)}
       ${logHTML(S.logs.filter(l=>l.refId===x.id),false)}
-      <button class="btn" data-act="log" data-id="${x.id}" data-sub="${esc(x.title)}">${I.doc} Record when this was done</button>
-      <button class="btn" data-act="edityear" data-id="${x.id}">${I.pencil} Edit this item</button>`);
+      <button class="btn" data-act="log" data-id="${x.id}" data-sub="${esc(x.title)}">${I.doc} Record when this was done</button>`,false,{page:{edit:'edityear',id:x.id}});
   }
   /* One shared sheet for both the first-run welcome and Settings → Share. mode: '' pick, 'new', 'join', 'solo'. */
   if(modal.kind==='welcome'||modal.kind==='connect'){
@@ -3879,6 +3971,9 @@ function modalHTML(){
       <label class="lbl">What it is<input data-m="k" value="${esc(d.k)}" placeholder="Furnace filter"></label>
       <label class="lbl">Size, style or part number<textarea data-m="v" rows="${Math.min(6,Math.max(2,Math.ceil(((d.v||'').length+1)/18)))}" class="specv-in" placeholder="${esc(specHint(d.k))}">${esc(d.v)}</textarea></label>
       <button class="btn" data-act="copyspec">${I.doc} Copy it</button>
+      <label class="lbl" style="flex-direction:row;align-items:center;gap:10px;display:flex"><input type="checkbox" data-m="low" ${d.low?'checked':''} style="width:22px;height:22px;min-height:0;flex:0 0 auto"> Need to buy</label>
+      <label class="lbl">For<select data-m="eqId"><option value="">Nothing in particular</option>${ownerOptions(d.eqId)}</select></label>
+      ${supplyOwner(d)?`<p class="hint" style="margin:-4px 0 0">Also listed under Parts and supplies on the ${esc(supplyOwner(d).name)}. Change the size here or there and both update.</p>`:''}
       <label class="lbl">Notes<textarea data-m="note" rows="3" placeholder="Where you buy it, pack size, when it was last changed">${esc(d.note||'')}</textarea></label>
       ${ph?`<button class="specphoto-big" data-act="viewphoto" data-id="${ph}" aria-label="Open the photo">${thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:I.img}</button>`:''}
       <button class="btn" data-act="specsheetphoto">${I.cam} ${ph?'Replace the photo':'Add a photo'}</button>
@@ -4012,6 +4107,7 @@ function modalHTML(){
   if(modal.kind==='keydate'){
     const d=modal.draft, when=nextOccur(d);
     return sheet(modal.isNew?'New date':'Edit date',`
+      <label class="lbl">For<select data-m="forId">${forOptions(d.forId||'')}</select></label>
       <input data-m="title" value="${esc(d.title)}" placeholder="What happens">
       <div style="display:flex;gap:8px">
         <label class="lbl" style="flex:1">Date<input type="date" data-m="date" value="${esc(d.date)}"></label>
@@ -4038,6 +4134,7 @@ function modalHTML(){
         ${d.phone?`<a class="btn" href="tel:${esc(telOf(d.phone))}">Call</a>`:''}
         ${fixURL(d.url)?`<a class="btn" href="${esc(fixURL(d.url))}" target="_blank" rel="noopener">Website</a>`:''}
       </div>
+      <label class="lbl" style="flex-direction:row;align-items:center;gap:10px;display:flex"><input type="checkbox" data-m="handoff" ${handoffContact(d)?'checked':''} style="width:22px;height:22px;min-height:0;flex:0 0 auto"> Goes in the handoff pack for the next owner</label>
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isNew?'':`<button class="btn danger big" data-act="sheetdel" data-v="delcontact" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this contact'}</button>`}`,true);
   }
@@ -4082,8 +4179,8 @@ function modalHTML(){
       <label class="lbl">What is this<input data-act="caption" data-id="${p.id}" value="${esc(p.caption)}" placeholder="Crack over the garage door"></label>
       <label class="lbl">Album<select data-act="where" data-id="${p.id}">${(()=>{
         const cur=(p.where||'').trim(), curKey=albumKeyOf(p);
-        const opts=[['','Unsorted'],...ROOMS.map(r=>[r,r])];
-        allAlbums().forEach(g=>{ if(g.key&&!ROOM_KEYS.includes(g.key)) opts.push([g.name,g.name]); });
+        const opts=[['','Unsorted'],...ROOMS.map(r=>[r,r]),...['Pets','Misc','Upkeep','Service records','Supplies'].map(n=>[n,n])];
+        allAlbums().forEach(g=>{ if(g.key&&!ROOM_KEYS.includes(g.key)&&!opts.some(([v])=>albumKeyOf({where:v})===g.key)) opts.push([g.name,g.name]); });
         if(cur&&!opts.some(([v])=>albumKeyOf({where:v})===curKey)) opts.push([cur,cur]);
         return opts.map(([v,l])=>`<option value="${esc(v)}" ${albumKeyOf({where:v})===curKey?'selected':''}>${esc(l)}</option>`).join(''); })()}</select></label>
       <datalist id="spots">${spots.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
@@ -4134,13 +4231,31 @@ function modalHTML(){
   }
   return '';
 }
-function sheet(title,inner,auto){
+function sheet(title,inner,auto,opt){
+  if(modal&&modal.pageStyle) return pageForm(title,inner);
+  if(opt&&opt.page) return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard">
+    <div class="pc-top"><button class="pc-round" data-act="closemodal" aria-label="Back">${I.left}</button>
+      ${opt.page.edit?`<button class="pc-pill" data-act="${opt.page.edit}" data-id="${opt.page.id}">Edit</button>`:'<span></span>'}</div>
+    <h1 class="pc-name pc-title">${esc(title)}</h1>
+    <div class="pc-group pc-body"><div class="fields">${inner}</div></div></div></div></div>`;
   return `<div class="scrim" data-act="scrim"><div class="sheet">
     <div class="top"><div><h3>${esc(title)}</h3>${auto?'<div class="auto">Saves as you type</div>':''}</div>
       <button class="icb" data-act="closemodal" aria-label="Close">${I.x}</button></div>
     <div class="fields">${inner}</div></div></div>`;
 }
 
+/* An edit form shown as a page (Done at the top): contacts, misc items, setup and seasonal items. Contacts and
+   misc items get their picture here: tap the circle, or Change / Remove under it. */
+function pageForm(title,inner){
+  const type=modal.pageStyle.type, d=modal.draft||{}, o=type?cardItem(type,d.id):null;
+  const ph=o?itemPhotoId(type,{...o,...d}):'';
+  const pic=o?`<button class="pc-avatar" data-act="cardphoto" data-v="${type}" data-id="${d.id}" ${ph?`data-thumb="${ph}"`:''} aria-label="${ph?'Change the photo':'Add a photo'}">${ph&&thumbOf(ph)?`<img src="${thumbOf(ph)}" alt="">`:esc(((d.name||'?').trim()[0]||'?').toUpperCase())}</button>
+    <div class="pc-phl">${ph?`<button data-act="cardphoto" data-v="${type}" data-id="${d.id}">Change photo</button><button data-act="cardphotorm" data-v="${type}" data-id="${d.id}">Remove photo</button>`:`<button data-act="cardphoto" data-v="${type}" data-id="${d.id}">Add photo</button>`}</div>`:'';
+  return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard editing">
+    <div class="pc-top"><span></span><button class="pc-pill on" data-act="done">Done</button></div>
+    ${pic}<h1 class="pc-name">${esc(d.name||d.title||title)}</h1>
+    <div class="pc-group pc-body"><div class="fields">${inner}</div></div></div></div></div>`;
+}
 /* Sheets save as you type. A brand-new item is created as soon as it has something in it. */
 function commitDraft(){
   if(!modal||!modal.draft) return;
@@ -4182,9 +4297,10 @@ function commitDraft(){
     if(i>=0) S.buy[i]={...S.buy[i],...rec}; else S.buy.push(rec);
   }else if(modal.kind==='spec'){
     const has=(d.k||'').trim()||(d.v||'').trim()||(d.note||'').trim()||d.photo;
-    const rec={id:d.id,k:d.k||'',v:d.v||'',note:d.note||'',photo:d.photo||''};
-    const i=S.specs.findIndex(x=>x.id===d.id);
+    const i=S.specs.findIndex(x=>x.id===d.id), prev=i>=0?S.specs[i]:{};
+    const rec={id:d.id,k:d.k||'',v:d.v||'',note:d.note||'',photo:d.photo||'',low:!!d.low,eqId:d.eqId||'',partId:(d.eqId||'')===(prev.eqId||'')?(d.partId||prev.partId||''):'',linkChecked:true};
     if(i>=0) S.specs[i]={...S.specs[i],...rec}; else if(has) S.specs.push(rec); else return;
+    { const sp=S.specs.find(x=>x.id===d.id); if(sp&&sp.eqId){ linkSupplyToOwner(sp); d.partId=sp.partId; d.v=sp.v; } }
   }else if(modal.kind==='misc'){
     const has=['name','brand','color','code','details','store','left'].some(k=>(d[k]||'').trim())||num(d.value)||(d.photos&&d.photos.length);
     const rec={...d,photos:[...(d.photos||[])]};
@@ -4231,9 +4347,18 @@ function commitDraft(){
     if(i>=0) S.fuel[i]={...S.fuel[i],...rec}; else S.fuel.push(rec);
   }else if(modal.kind==='keydate'){
     if(!(d.title||'').trim()) return;
-    const rec={id:d.id,title:d.title,date:d.date||'',every:+d.every||0,note:d.note||'',at:d.date?(d.at||Date.now()):0,by:d.by||pref.who()};
-    const i=S.keyDates.findIndex(x=>x.id===d.id);
-    if(i>=0) S.keyDates[i]={...S.keyDates[i],...rec}; else S.keyDates.push(rec);
+    const owners=[...(S.equipment||[]),...(S.vehicles||[]),...(S.pets||[])];
+    if(d.forId){   // a date for one of your things lives on that thing (and still shows under Key dates)
+      const [fk,fid]=d.forId.split('|'), own=ownerOf(fk,fid); if(!own) return;
+      const ki=S.keyDates.findIndex(x=>x.id===d.id); if(ki>=0) S.keyDates.splice(ki,1);
+      owners.forEach(o2=>{ if(o2!==own&&o2.dues) o2.dues=o2.dues.filter(x=>x.id!==d.id); });
+      own.dues=own.dues||[]; const du=own.dues.find(x=>x.id===d.id), rec2={id:d.id,title:d.title,date:d.date||'',every:(+d.every||0)*12,note:d.note||''};
+      if(du) Object.assign(du,rec2); else own.dues.push(rec2);
+    } else {
+      owners.forEach(o2=>{ if(o2.dues) o2.dues=o2.dues.filter(x=>x.id!==d.id); });
+      const rec={id:d.id,title:d.title,date:d.date||'',every:+d.every||0,note:d.note||'',at:d.date?(d.at||Date.now()):0,by:d.by||pref.who()};
+      const i=S.keyDates.findIndex(x=>x.id===d.id);
+      if(i>=0) S.keyDates[i]={...S.keyDates[i],...rec}; else S.keyDates.push(rec); }
   }else if(modal.kind==='contact'){
     const has=(d.name||'').trim()||(d.phone||'').trim()||(d.url||'').trim();
     const rec={...d,url:fixURL(d.url)};
@@ -4277,13 +4402,18 @@ document.addEventListener('input',async e=>{
   if(el.dataset.m && modal){
     if(modal.draft){
       modal.draft[el.dataset.m]=el.type==='checkbox'?el.checked:el.value;
+      if(modal.kind==='yearitem'&&el.dataset.m==='linkSel'){
+        const [k2,o2,c2]=(el.value||'').split('|'); const d=modal.draft; delete d.linkSel;
+        d.linkKind=k2||''; d.linkId=o2||''; d.linkCid=c2||''; d.linkChecked=true; commitDraft();
+        const x=(S.yearly||[]).find(z=>z.id===d.id); if(x&&x.linkId) syncFromSeasonal(x,new Date().getFullYear());
+        render(); save(); return; }
       if(modal.kind==='log'&&el.dataset.m==='refId'){   // picking what it's for fills in the name, unless you typed your own
         const it=[...(S.equipment||[]),...(S.vehicles||[]),...(S.pets||[])].find(x=>x.id===el.value);
         if(!modal.draft.subject||modal.draft.subject===modal.autoSub){ modal.draft.subject=it?it.name:''; modal.autoSub=modal.draft.subject; }
         commitDraft(); render(); return; }
       if(el.dataset.m==='season'){ if(!seasonMonths(el.value).includes(+modal.draft.month)) modal.draft.month=0; commitDraft(); render(); return; }
       commitDraft();
-      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))||(modal.kind==='misc'&&el.dataset.m==='kind')) render();   // live gallons and cost
+      if(['fuel','fuelread','fuelstart','fueltank','prepay'].includes(modal.kind)||(modal.kind==='spend'&&['every','repeatMode'].includes(el.dataset.m))||(modal.kind==='misc'&&el.dataset.m==='kind')||(modal.kind==='spec'&&el.dataset.m==='eqId')||(modal.kind==='keydate'&&el.dataset.m==='forId')) render();   // live gallons and cost
     } else modal[el.dataset.m]=el.value;
     return; }
   if(!a) return;
@@ -4295,12 +4425,12 @@ document.addEventListener('input',async e=>{
   if(a==='spec'){ const s=S.specs.find(x=>x.id===el.dataset.sid); if(s){ s[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='eq'){ const q2=S.equipment.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='espec'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), sp=q2&&q2.specs.find(x=>x.id===el.dataset.sid);
-    if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
+    if(sp){ sp[el.dataset.f]=el.value; const ls=el.dataset.f==='v'&&supplyOfPart(q2.id,sp.id); if(ls) ls.v=el.value; saveSoon(); } return; }
   if(a==='echk'){ const q2=S.equipment.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
     if(ck){ ck[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='veh'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id); if(q2){ q2[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='vspec'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id), sp=q2&&q2.specs.find(x=>x.id===el.dataset.sid);
-    if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
+    if(sp){ sp[el.dataset.f]=el.value; { const ls=el.dataset.f==='v'&&supplyOfPart(q2.id,sp.id); if(ls) ls.v=el.value; } saveSoon(); } return; }
   if(a==='vchk'){ const q2=S.vehicles.find(x=>x.id===el.dataset.id), ck=q2&&q2.checks.find(x=>x.id===el.dataset.cid);
     if(ck){ ck[el.dataset.f]=el.value; saveSoon(); if(el.dataset.rerender) render(); } return; }
   if(a==='duef'){ const o=ownerOf(el.dataset.kind,el.dataset.id), du=o&&(o.dues||[]).find(x=>x.id===el.dataset.did);
@@ -4319,7 +4449,10 @@ document.addEventListener('input',async e=>{
   if(a==='petspec'){ const p2=S.pets.find(x=>x.id===el.dataset.id), sp=p2&&p2.specs.find(x=>x.id===el.dataset.sid);
     if(sp){ sp[el.dataset.f]=el.value; saveSoon(); } return; }
   if(a==='caption'||a==='where'||a==='pnote'){ const p=S.photos.find(x=>x.id===el.dataset.id);
-    if(p){ p[a==='caption'?'caption':a==='where'?'where':'note']=el.value; saveSoon(); } return; }
+    if(p){ p[a==='caption'?'caption':a==='where'?'where':'note']=el.value;
+      if(a==='where'&&p.petId&&albumKeyOf({where:el.value})!=='pets'){   // moved out of Pets: no longer that pet's photo
+        (S.pets||[]).forEach(pt=>{ if(pt.photoId===p.id) pt.photoId=''; }); delete p.petId; render(); }
+      saveSoon(); } return; }
   if(a==='precheck'){ const p=S.photos.find(x=>x.id===el.dataset.id); if(!p) return;
     const n=+el.value||0; p.recheckEvery=n;
     p.recheck=n?isoOf(addMonths(today0(),n)):'';
@@ -4367,9 +4500,9 @@ document.addEventListener('click',async e=>{
   if(a==='jump'){ if(!id) return;
     if((S.tasks||[]).some(x=>x.id===id)){ modalAt=Date.now(); modal={kind:'detail',id}; render(); return; }
     if((S.yearly||[]).some(x=>x.id===id)){ modalAt=Date.now(); modal={kind:'yeardetail',id}; render(); return; }
-    if((S.equipment||[]).some(x=>x.id===id)){ tab='gear'; openEquip=id; gsecSet(equipSecOf(id),true); q=''; searchOpen=false; render(); return; }
-    if((S.vehicles||[]).some(x=>x.id===id)){ tab='gear'; openVehicle=id; gsecSet('vehicles',true); q=''; searchOpen=false; render(); return; }
-    if((S.pets||[]).some(x=>x.id===id)){ tab='gear'; openPet=id; gsecSet('pets',true); q=''; searchOpen=false; render(); return; }
+    if((S.equipment||[]).some(x=>x.id===id)){ tab='gear'; gsecSet(equipSecOf(id),true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'eq',id}; render(); return; }
+    if((S.vehicles||[]).some(x=>x.id===id)){ tab='gear'; gsecSet('vehicles',true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'veh',id}; render(); return; }
+    if((S.pets||[]).some(x=>x.id===id)){ tab='gear'; gsecSet('pets',true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'pet',id}; render(); return; }
     return; }
   if(a==='equipjump'){ tab='gear'; gsecSet(equipSecOf(v),true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'eq',id:v}; render(); return; }
   if(a==='vehiclejump'){ tab='gear'; gsecSet('vehicles',true); q=''; searchOpen=false; modalAt=Date.now(); modal={kind:'card',type:'veh',id:v}; render(); return; }
@@ -4402,20 +4535,22 @@ document.addEventListener('click',async e=>{
   if(a==='toggletask'){ const t=S.tasks.find(x=>x.id===id); if(!t) return;
     t.done=!t.done; t.doneAt=t.done?Date.now():null; t.doneBy=t.done?pref.who():''; render(); save(); return; }
   if(a==='toggleyear'){ const k=btn.dataset.k||yearKey(id,S.activeYear);
-    if(S.yearlyDone[k]) delete S.yearlyDone[k]; else S.yearlyDone[k]=tick(); render(); save(); return; }
-  if(a==='toggleequip'){ const k=id+':'+btn.dataset.cid+':'+S.activeYear;
-    if(S.equipDone[k]){ delete S.equipDone[k]; render(); save(); return; }
-    S.equipDone[k]=tick(); render(); save();
+    if(S.yearlyDone[k]) delete S.yearlyDone[k]; else S.yearlyDone[k]=tick();
+    { const x=(S.yearly||[]).find(z=>z.id===id); if(x&&x.linkId) syncFromSeasonal(x,+String(k).split(':')[1]); }
+    render(); save(); return; }
+  if(a==='toggleequip'){ const TY=+btn.dataset.y||S.activeYear, k=id+':'+btn.dataset.cid+':'+TY;
+    if(S.equipDone[k]){ delete S.equipDone[k]; syncFromCheck('eq',id,btn.dataset.cid,TY); render(); save(); return; }
+    S.equipDone[k]=tick(); syncFromCheck('eq',id,btn.dataset.cid,TY); render(); save();
     const e2=S.equipment.find(x=>x.id===id), ck=e2&&e2.checks.find(c=>c.id===btn.dataset.cid);
-    if(ck) setNote(`Ticked for ${S.activeYear}.`,'ok',{label:'Add what you did',act:'log',id:e2.id,sub:e2.name,what:ck.title});
+    if(ck) setNote(`Ticked for ${TY}.`,'ok',{label:'Add what you did',act:'log',id:e2.id,sub:e2.name,what:ck.title});
     return; }
-  if(a==='togglevehicle'){ const k=id+':'+btn.dataset.cid+':'+S.activeYear;
+  if(a==='togglevehicle'){ const TY=+btn.dataset.y||S.activeYear, k=id+':'+btn.dataset.cid+':'+TY;
     const vv=S.vehicles.find(x=>x.id===id), cc=vv&&vv.checks.find(c=>c.id===btn.dataset.cid);
     if(S.vehicleDone[k]){ delete S.vehicleDone[k];
       // undo the mileage the tick recorded, unless you've since typed a different one yourself
       if(cc&&cc.tickMi!==undefined){ if(cc.lastMi===cc.tickMi) cc.lastMi=cc.lastMiBefore||''; delete cc.tickMi; delete cc.lastMiBefore; }
-      render(); save(); return; }
-    S.vehicleDone[k]=tick();
+      syncFromCheck('veh',id,btn.dataset.cid,TY); render(); save(); return; }
+    S.vehicleDone[k]=tick(); syncFromCheck('veh',id,btn.dataset.cid,TY);
     if(cc&&num(vv.odo)&&num(cc.miles)){ cc.lastMiBefore=cc.lastMi||''; cc.lastMi=vv.odo; cc.tickMi=vv.odo; }   // done now, at today's mileage
     render(); save();
     const v2=S.vehicles.find(x=>x.id===id), ck=v2&&v2.checks.find(c=>c.id===btn.dataset.cid);
@@ -4423,7 +4558,8 @@ document.addEventListener('click',async e=>{
     return; }
 
   if(a==='newtask'){ modalAt=Date.now(), modal={kind:'task',draft:{id:uid(),cat:'',title:'',when:'First month',contact:'',url:'',notes:'',cost:'',done:false,doneAt:null,photos:[]},isNew:true}; render(); return; }
-  if(a==='edittask'){ modalAt=Date.now(), modal={kind:'task',draft:{...S.tasks.find(x=>x.id===id)}}; render(); return; }
+  if(a==='edittask'){ const back=modal&&modal.kind==='detail'?{kind:'detail',id:modal.id}:null;
+    modalAt=Date.now(), modal={kind:'task',back,pageStyle:back?{type:null}:null,draft:{...S.tasks.find(x=>x.id===id)}}; render(); return; }
   if(a==='detail'){ modalAt=Date.now(), modal={kind:'detail',id}; render(); return; }
   if(a==='deltask'){ const i=S.tasks.findIndex(x=>x.id===id); if(i<0) return;
     const [t]=S.tasks.splice(i,1);
@@ -4432,7 +4568,7 @@ document.addEventListener('click',async e=>{
   if(a==='newyear'){ modalAt=Date.now(); modal={kind:'yearitem',isNew:true,
     draft:{id:uid(),season:v,month:0,title:'',cat:'',freq:'Annual',notes:''}}; render(); return; }
   if(a==='edityear'){ const back=modal&&modal.kind==='yeardetail'?{kind:'yeardetail',id:modal.id}:null;
-    modalAt=Date.now(); modal={kind:'yearitem',back,draft:{...S.yearly.find(x=>x.id===id)}}; render(); return; }
+    modalAt=Date.now(); modal={kind:'yearitem',back,pageStyle:back?{type:null}:null,draft:{...S.yearly.find(x=>x.id===id)}}; render(); return; }
   if(a==='yeardetail'){ modalAt=Date.now(); modal={kind:'yeardetail',id}; render(); return; }
   if(a==='delyear'){ const i=S.yearly.findIndex(z=>z.id===id); if(i<0) return;
     const [x]=S.yearly.splice(i,1), keep={};
@@ -4539,7 +4675,7 @@ document.addEventListener('click',async e=>{
     q2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
   if(a==='delespec'){ const q2=S.equipment.find(x=>x.id===id); if(!q2) return;
     const i=q2.specs.findIndex(x=>x.id===btn.dataset.sid); if(i<0) return;
-    const [sp]=q2.specs.splice(i,1);
+    const [sp]=q2.specs.splice(i,1); { const ls=supplyOfPart(q2.id,sp.id); if(ls){ ls.eqId=''; ls.partId=''; } }
     deleted(sp.k?'\u201c'+sp.k+'\u201d':'that part',()=>q2.specs.splice(i,0,sp)); return; }
   if(a==='addechk'){ const q2=S.equipment.find(x=>x.id===id); if(!q2) return;
     q2.checks.push({id:uid(),title:'New check',freq:'Annual'}); render(); save(); return; }
@@ -4569,7 +4705,7 @@ document.addEventListener('click',async e=>{
     q2.specs.push({id:uid(),k:'',v:''}); render(); save(); return; }
   if(a==='delvspec'){ const q2=S.vehicles.find(x=>x.id===id); if(!q2) return;
     const i=q2.specs.findIndex(x=>x.id===btn.dataset.sid); if(i<0) return;
-    const [sp]=q2.specs.splice(i,1);
+    const [sp]=q2.specs.splice(i,1); { const ls=supplyOfPart(q2.id,sp.id); if(ls){ ls.eqId=''; ls.partId=''; } }
     deleted(sp.k?'\u201c'+sp.k+'\u201d':'that part',()=>q2.specs.splice(i,0,sp)); return; }
   if(a==='addvchk'){ const q2=S.vehicles.find(x=>x.id===id); if(!q2) return;
     q2.checks.push({id:uid(),title:'New check',freq:'Annual'}); render(); save(); return; }
@@ -4659,7 +4795,7 @@ document.addEventListener('click',async e=>{
       const pid=await addPhoto(files[0],{caption:(pet.name||'Pet')+' profile photo',where:'Pets'});
       if(pid){ pet.photoId=pid; linkPet(pid,pet.id); save(); }
       render(); }); return; }
-  if(a==='snappet'){ const petId=id; pick(async files=>{
+  if(a==='snappet'){ const petId=id; const pt0=(S.pets||[]).find(x=>x.id===petId); if(pt0) delete pt0.noAvatar; pick(async files=>{
       let n=0; for(const f of files){ const pid=await addPhoto(f,{caption:'',where:'Pets'}); if(pid){ linkPet(pid,petId); n++; } }
       save();
       if(files.length>1) setNote(n===files.length?`${n} photos added.`:`${n} of ${files.length} photos added.`,'ok');
@@ -4686,17 +4822,24 @@ document.addEventListener('click',async e=>{
     t.dataset.act=btn.dataset.go; t.style.display='none'; document.body.appendChild(t); t.click(); t.remove();
     if(modal&&modal!==card&&!modal.back) modal.back=card;
     render(); return; }
-  if(a==='cardphoto'){ const card=modal; if(!card||card.kind!=='card') return; const o=cardItem(card.type,card.id); if(!o) return;
-    const where=card.type==='pet'?'Pets':card.type==='misc'?'Misc':'Upkeep';
+  if(a==='cardphoto'||a==='cardphotorm'){ const type=btn.dataset.v||(modal&&modal.type), oid=btn.dataset.id||(modal&&modal.id);
+    const o=cardItem(type,oid); if(!o) return;
+    const draftOf=()=>modal&&modal.draft&&modal.draft.id===o.id?modal.draft:null;
+    if(a==='cardphotorm'){ for(const x of [o,draftOf()].filter(Boolean)){ x.photoId=''; x.noAvatar=true; }
+      save(); setNote('Profile photo removed. The picture itself is still in Photos.','ok'); render(); return; }
+    const where=type==='pet'?'Pets':type==='misc'?'Misc':type==='contact'?'Contacts':'Upkeep';
     pick(async files=>{ if(!files[0]) return;
       const pid=await addPhoto(files[0],{caption:o.name||'Photo',where});
-      if(pid){ o.photoId=pid; delete o.noAvatar;
-        if(card.type==='pet') linkPet(pid,o.id);
-        if(card.type==='misc'){ o.photos=o.photos||[]; if(!o.photos.includes(pid)) o.photos.unshift(pid); }
+      if(pid){ for(const x of [o,draftOf()].filter(Boolean)){ x.photoId=pid; delete x.noAvatar;
+          if(type==='misc'){ x.photos=x.photos||[]; if(!x.photos.includes(pid)) x.photos.unshift(pid); } }
+        if(type==='pet') linkPet(pid,o.id);
         save(); }
       render(); }); return; }
-  if(a==='cardphotorm'){ const o=modal&&cardItem(modal.type,modal.id); if(!o) return;
-    o.photoId=''; o.noAvatar=true; save(); setNote('Profile photo removed. The picture itself is still in Photos.','ok'); render(); return; }
+  if(a==='partreorder'){ const own=cardItem(btn.dataset.kind,id), part=own&&(own.specs||[]).find(x=>x.id===btn.dataset.sid); if(!part) return;
+    let nm=(part.k||'Part').trim(); if(own.name&&!nm.toLowerCase().includes(own.name.toLowerCase())) nm=own.name+' '+nm.charAt(0).toLowerCase()+nm.slice(1);
+    S.specs.push({id:uid(),k:nm,v:part.v||'',note:'',photo:'',eqId:own.id,partId:part.id,linkChecked:true});
+    save(); setNote(`Added to Supplies to reorder as \u201c${nm}\u201d.`,'ok'); render(); return; }
+  if(a==='gofiles'){ tab='house'; gsecSet('h.papers',true); render(); setTimeout(()=>{ const el=document.querySelector('[data-act="gearsec"][data-v="h.papers"]'); if(el) el.scrollIntoView({block:'start',behavior:'smooth'}); },60); return; }
   if(a==='cardcopy'){ const val=(v||'').trim(); if(!val) return;
     try{ await navigator.clipboard.writeText(val); setNote('Copied: '+val,'ok'); }catch(e){ setNote('Copying was blocked here — press and hold to copy it.'); }
     return; }
@@ -4706,7 +4849,7 @@ document.addEventListener('click',async e=>{
     return; }
   if(a==='cardedit'){ const card=modal, t=card.type, cid=card.id;
     if(t==='contact'||t==='misc'){ const b=document.createElement('button'); b.dataset.act=t; b.dataset.id=cid; b.style.display='none';
-      document.body.appendChild(b); b.click(); b.remove(); if(modal&&modal!==card) modal.back=card; render(); return; }
+      document.body.appendChild(b); b.click(); b.remove(); if(modal&&modal!==card){ modal.back=card; modal.pageStyle={type:t}; } render(); return; }
     // pets and machines are edited right on their page: every field, part, check and date
     card.edit=true; card.confirm=false; editing=true; if(t==='pet') openPet=cid;
     render(); const sh=document.querySelector('#modal .sheet.page'); if(sh) sh.scrollTop=0; return; }
@@ -5088,13 +5231,20 @@ function buildHandoff(){
   const y=new Date().getFullYear();
   const kd=(S.keyDates||[]).filter(k=>k.date).map(k=>{ const w=nextOccur(k);
     return [k.title,w?fmtDate(isoOf(w)):'',repeatWord(k.every),k.note||'']; });
-  const sizes=(S.specs||[]).filter(sp=>(sp.k||'').trim()||(sp.v||'').trim()).map(sp=>[sp.k,[sp.v,sp.note].filter(x=>(x||'').trim()).join(' — ')]);
-  const gear=(S.equipment||[]).filter(e=>e.cat==='appliance').map(e=>`<h3>${esc(e.name)}</h3>
+  const forHouse=sp=>{ const o=supplyOwner(sp); return !o||(S.equipment||[]).some(e=>e.id===o.id&&e.cat==='appliance'); };
+  const sizes=(S.specs||[]).filter(sp=>((sp.k||'').trim()||(sp.v||'').trim())&&forHouse(sp)).map(sp=>[sp.k,[sp.v,sp.note,supplyOwner(sp)?'for the '+supplyOwner(sp).name:''].filter(x=>(x||'').trim()).join(' — ')]);
+  const gear=(S.equipment||[]).filter(e=>e.cat==='appliance').map(e=>{ const pid=itemPhotoId('eq',e), src=pid&&(photoCache[pid]||thumbOf(pid));
+    const last=(S.logs||[]).filter(l=>l.refId===e.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''))[0];
+    const docsList=(S.files||[]).filter(f=>f.cat==='eq:'+e.id).map(f=>f.name);
+    return `<h3>${esc(e.name)}</h3>
+    ${src?`<figure style="max-width:260px"><img src="${src}" alt=""></figure>`:''}
     <p class="sub">${esc([e.make,e.model].filter(Boolean).join(' '))}${e.serial?' · serial '+esc(e.serial):''}</p>
+    ${last?`<p class="sub">Last serviced ${esc(fmtDate(last.date))}${last.what||last.who?' — '+esc([last.what,last.who].filter(Boolean).join(', ')):''}</p>`:''}
+    ${docsList.length?`<p class="sub">Papers on file: ${esc(docsList.join(', '))}</p>`:''}
     ${hoTable((e.specs||[]).filter(sp=>(sp.v||'').trim()).map(sp=>[sp.k,sp.v]))}
     ${(e.checks||[]).length?`<p class="sub">Tune-up: ${esc((e.checks||[]).map(c=>c.title+(c.freq?' ('+c.freq+')':'')).join('; '))}</p>`:''}
     ${hoTable(duesRows(e))}
-    ${(e.notes||'').trim()?`<p class="sub">Notes: ${esc(e.notes)}</p>`:''}`).join('');
+    ${(e.notes||'').trim()?`<p class="sub">Notes: ${esc(e.notes)}</p>`:''}`; }).join('');
   // Pets, vehicles and equipment don't go with the house, so they (and their photos, records and papers) stay out
   const houseIds=new Set([...(S.tasks||[]),...(S.yearly||[]),...(S.equipment||[]).filter(e=>e.cat==='appliance')].map(x=>x.id));
   const logOk=l=>!l.refId||houseIds.has(l.refId);   // a record pointing at a pet, vehicle or machine — or one that was deleted — stays out
@@ -5109,15 +5259,19 @@ function buildHandoff(){
       const months=(ny-fy)*12+(nm-fm)+1, tot=items.reduce((a,it)=>a+it.amt,0);
       return [l.name,`about ${money(tot/months)} a month · ${money(tot)} over ${months} month${months===1?'':'s'}`]; }).filter(Boolean);
   const runCosts=costs.length?hoTable(costs)+'<p class="sub">From the bills and costs logged in House HQ over the last 12 months.</p>':'';
-  const contacts=hoTable((S.contacts||[]).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
+  const contacts=hoTable((S.contacts||[]).filter(handoffContact).map(c=>[c.name,[c.role,c.phone,c.note].filter(Boolean).join(' · ')]));
   const logs=(S.logs||[]).filter(logOk).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(l=>[fmtDate(l.date),l.subject||'',[l.what,l.who,l.cost?'$'+l.cost:'',l.doc].filter(Boolean).join(' · ')]);
   const fuelRows=(S.fuel||[]).filter(f=>!isReading(f)&&!isPrepay(f)).sort((a,b)=>(b.date||'').localeCompare(a.date||''))
     .map(f=>[fmtDate(f.date),(f.gallons||'')+' gal',fuelCost(f)?money(fuelCost(f)):'',f.vendor||'']);
-  const seasonal=hoTable((S.yearly||[]).map(x=>[x.title,[x.season,x.month?MONTHS[x.month-1]:'',x.freq].filter(Boolean).join(' · ')]));
+  const seasonal=hoTable((S.yearly||[]).filter(x=>{ const t=linkTarget(x); return !t||(t.map==='equipDone'&&t.o.cat==='appliance'); }).map(x=>[x.title,[x.season,x.month?MONTHS[x.month-1]:'',x.freq].filter(Boolean).join(' · ')]));
   const hiddenPhotos=new Set([...(S.logs||[]).filter(l=>!logOk(l)).flatMap(l=>l.photos||[]),
     ...(S.misc||[]).filter(m=>m.stays===false).flatMap(m=>m.photos||[])]);
-  const shots=(S.photos||[]).filter(p=>photoCache[p.id]&&!hiddenPhotos.has(p.id)&&albumKeyOf(p)!=='pets'&&!p.petId).slice(0,30);
+  // nothing of the pets', vehicles', equipment's or people's; Upkeep photos only when they're an appliance's
+  const notHouse=new Set([...(S.vehicles||[]).map(x=>x.photoId),...(S.equipment||[]).filter(e=>e.cat!=='appliance').map(x=>x.photoId),...(S.contacts||[]).map(x=>x.photoId)].filter(Boolean));
+  const applPics=new Set((S.equipment||[]).filter(e=>e.cat==='appliance').map(e=>itemPhotoId('eq',e)).filter(Boolean));
+  const shots=(S.photos||[]).filter(p=>photoCache[p.id]&&!hiddenPhotos.has(p.id)&&!notHouse.has(p.id)&&!applPics.has(p.id)
+    &&!['pets','contacts'].includes(albumKeyOf(p))&&!p.petId&&(albumKeyOf(p)!=='upkeep')).slice(0,30);
   const photos=shots.map(p=>`<figure><img src="${photoCache[p.id]}" alt="">
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
   const fileAway=f=>{ if(f.away) return true;
@@ -5458,6 +5612,9 @@ async function mountViewer(){
   migrateInventory(S);
   fixWording(S);
   fixPhones(S);
+  migrateBuy(S);
+  linkSupplies(S);
+  linkSeasonal(S);
   const lt=LS('hq:theme'); if(lt&&THEMES[lt]) S.theme=lt;
   if(!setupOpen()) tab='seasons';
   if(!store.saving()) setNote('This browser is not letting the app save. Download a backup before you close it.');
