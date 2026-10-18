@@ -2121,6 +2121,67 @@ nav button:active{transform:scale(.96)}
 @media (min-width:860px){
   nav{left:calc(50% - 380px);right:calc(50% - 380px);border-radius:999px}
 }
+/* ================= Apple layout: the theme's colors, laid out like iOS =================
+   grouped cards, hairline rows, round checkmarks, switches, capsule buttons, "Add" rows, segmented seasons */
+body{-webkit-font-smoothing:antialiased;letter-spacing:-.008em}
+.zone{background:${t.paper};border:0;border-radius:22px;padding:16px 16px 6px;box-shadow:0 1px 2px ${t.ink}14}
+.pc-group{border:0;box-shadow:0 1px 2px ${t.ink}14}
+.card{border:0;border-radius:22px;box-shadow:0 1px 2px ${t.ink}14}
+h2.sec{font:700 21px/1.2 ${HEAD};letter-spacing:-.02em}
+.gzhead .mplus.chev{background:none;border:0;width:26px;height:26px;color:${t.ink70};font-size:0}
+.gzhead .mplus.chev svg{width:18px;height:18px;transition:transform .22s ease}
+.gzhead[aria-expanded="true"] .mplus.chev svg{transform:rotate(90deg)}
+/* rows: thin dividers, no boxes inside boxes */
+.row{border-bottom:.5px solid ${t.ink}26}
+.zone .card{background:none;border:0;border-radius:0;margin:0;box-shadow:none;border-bottom:.5px solid ${t.ink}26}
+.zone .card>.head{padding:13px 0;align-items:center}
+.zone .card>.head::after{content:'';flex:0 0 14px;height:14px;margin-left:6px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${t.ink70.replace('#','%23')}' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='9 5 16 12 9 19'/%3E%3C/svg%3E") center/contain no-repeat}
+.card .head b{font:600 17px ${BODY}}
+.sizerow{border-bottom:.5px solid ${t.ink}26}
+/* round checkmarks, like Reminders */
+.box{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:1.5px solid ${t.ink}70}
+.box.on{background:${t.accent};border-color:${t.accent};color:${t.onAccent}}
+.box.soft{border-radius:50%}
+/* buttons: tinted capsules; the main action filled; "Add" as a plain row with a plus in a circle */
+.btn{border:0;background:${t.ink}12;border-radius:14px;min-height:46px;font-weight:600;color:${t.accent};-webkit-text-fill-color:${t.accent}}
+.btn.solid{background:${t.accent};color:${t.onAccent};-webkit-text-fill-color:${t.onAccent}}
+.btn.dark{background:${t.ink};color:${t.paper};-webkit-text-fill-color:${t.paper}}
+.btn.danger{background:${t.warnSoft};color:${t.warn};-webkit-text-fill-color:${t.warn}}
+.btn.dash{background:none;border:0;justify-content:flex-start;gap:12px;padding:8px 0;min-height:44px;font-weight:500}
+.btn.dash svg{width:24px;height:24px;padding:5px;box-sizing:border-box;border-radius:50%;background:${t.accent};color:${t.onAccent};flex:0 0 24px}
+/* chips and the seasons picker */
+.chip{border:0;background:${t.ink}14;color:${t.ink}}
+.chip.on{background:${t.accent};color:${t.onAccent}}
+.seasons{background:${t.ink}26;border-radius:13px;padding:3px;gap:2px}
+.seasons button{border:0;background:none;border-radius:10px;box-shadow:none}
+.seasons button.on{background:${t.paper};color:${t.ink};box-shadow:0 1px 4px rgba(0,0,0,.22)}
+/* fields: soft filled boxes, no outlines */
+input:not([type=checkbox]):not([type=file]):not([type=range]),select,textarea{border:0;background-color:${t.ink}10;border-radius:12px;min-height:46px;font-size:17px;color:${t.ink}}
+textarea{min-height:0}
+input:focus,select:focus,textarea:focus{outline:2px solid ${t.accent}80;outline-offset:0}
+#q{background-color:${t.ink}14}
+/* yes / no settings are switches, label on the left */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;width:51px!important;height:31px!important;min-height:0!important;flex:0 0 51px!important;
+  border-radius:999px;background:${t.ink}2E;position:relative;cursor:pointer;margin:0 0 0 auto!important;border:0;order:2;transition:background .2s}
+input[type=checkbox]::before{content:'';position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;
+  box-shadow:0 2px 5px rgba(0,0,0,.25);transition:transform .2s}
+input[type=checkbox]:checked{background:${t.accent}}
+input[type=checkbox]:checked::before{transform:translateX(20px)}
+.chk{justify-content:space-between;gap:14px;min-height:44px}
+/* sheets sit on the grouped background, with a grabber */
+.sheet{background:${t.ground}}
+.sheet:before{width:36px;height:5px;border-radius:3px;background:${t.ink}40}
+.tag{border-radius:8px}
+.yearbar{border:0;background:${t.paper};box-shadow:0 1px 2px ${t.ink}14}
+.btn.dark{background:${t.accent};color:${t.onAccent};-webkit-text-fill-color:${t.onAccent}}
+.editbtn{background:none;min-height:40px;padding:0 6px;font-size:17px;font-weight:500}
+.editbtn.on{background:none;font-weight:700}
+.alist{background:${t.paper};border-radius:22px;overflow:hidden;box-shadow:0 1px 2px ${t.ink}14;padding:0 16px}
+.alist .arow{border:0;border-radius:0;background:none;margin:0;box-shadow:none;border-bottom:.5px solid ${t.ink}26;padding-left:0;padding-right:0}
+.alist .arow:last-child{border-bottom:0}
+.setz{padding-bottom:12px}
+.setz h2.sec{margin-top:0!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}`;
 
 
@@ -3217,13 +3278,13 @@ const equipSecOf=id=>(((S.equipment||[]).find(x=>x.id===id)||{}).cat==='applianc
 /* Collapsible sections that keep their own markup: only the header changes, and CSS hides the rest while closed. */
 const fo=k=>gsec()[k]?'open':'';
 const fhead=(k,title,count)=>{ const o=!!gsec()[k];
-  return `<button class="gzhead" data-act="gearsec" data-v="${k}" aria-expanded="${o}" aria-label="${o?'Collapse':'Expand'} ${esc(title)}"><h2 class="sec">${esc(title)}${count?` <em>${count}</em>`:''}</h2><span class="mplus">${o?'−':'+'}</span></button>`; };
+  return `<button class="gzhead" data-act="gearsec" data-v="${k}" aria-expanded="${o}" aria-label="${o?'Collapse':'Expand'} ${esc(title)}"><h2 class="sec">${esc(title)}${count?` <em>${count}</em>`:''}</h2><span class="mplus chev">${I.right}</span></button>`; };
 const fsum=t=>`<p class="gzsum fsum">${esc(t)}</p>`;
 function gearZone(key,title,count,names,hint,bodyFn){
   const open=!!gsec()[key], sum=(names||[]).filter(Boolean).join(', ');
   return `<section class="zone gz ${open?'open':''}">
     <button class="gzhead" data-act="gearsec" data-v="${key}" aria-expanded="${open}" aria-label="${open?'Collapse':'Expand'} ${esc(title)}">
-      <h2 class="sec">${esc(title)}${count?` <em>${count}</em>`:''}</h2><span class="mplus">${open?'−':'+'}</span></button>
+      <h2 class="sec">${esc(title)}${count?` <em>${count}</em>`:''}</h2><span class="mplus chev">${I.right}</span></button>
     ${open?`<p class="hint">${esc(hint)}</p>${bodyFn()}`:`<p class="gzsum">${sum?esc(sum):'Nothing yet — tap to add'}</p>`}
   </section>`;
 }
@@ -3371,8 +3432,13 @@ function viewHouse(){
 `;
 }
 
+/* Settings, iOS-style: each heading and what follows it becomes one grouped card. */
+function groupSections(html){
+  const parts=html.split('<h2 class="sec"');
+  return parts[0]+parts.slice(1).map(x=>`<section class="zone setz"><h2 class="sec"${x}</section>`).join('');
+}
 function viewSettings(){
-  return `<p class="hint" style="margin-top:0">Sharing, backups and this phone's settings, plus the setup list, the handoff pack and what changed recently. The house itself is on the House tab.</p>
+  return groupSections(`<p class="hint" style="margin-top:0">Sharing, backups and this phone's settings, plus the setup list, the handoff pack and what changed recently. The house itself is on the House tab.</p>
   <h2 class="sec" style="margin-top:8px">Sharing</h2>
   <p class="hint">${esc(cloud.describe())}</p>
   <label class="lbl" style="margin-bottom:12px">Your name on this phone<input data-act="who" value="${esc(pref.who())}" placeholder="Your name" autocomplete="given-name"></label>
@@ -3444,7 +3510,7 @@ function viewSettings(){
   </div>
   <p class="hint" style="margin-top:8px">${cloud.code?'Leaving keeps a copy of everything on this phone and just stops syncing; you can join again with the code. ':''}Erasing wipes this phone clean and brings back the welcome screen.</p>
 
-  <p class="hint" style="margin-top:22px;font-size:12.5px">House HQ build ${esc(BUILD)}${store.mode!=='memory'?' · saving to '+({idb:'this phone',local:'this browser',artifact:'Claude'}[store.mode]||store.mode):''}</p>`;
+  <p class="hint" style="margin-top:22px;font-size:12.5px">House HQ build ${esc(BUILD)}${store.mode!=='memory'?' · saving to '+({idb:'this phone',local:'this browser',artifact:'Claude'}[store.mode]||store.mode):''}</p>`);
 }
 
 const VIEWS={list:viewList,seasons:viewSeasons,photos:viewPhotos,gear:viewGear,budget:viewBudget,house:viewHouse,settings:viewSettings};
@@ -4688,9 +4754,9 @@ document.addEventListener('click',async e=>{
     deleted('\u201c'+(ck.title||'that check')+'\u201d',
       ()=>{ q2.checks.splice(i,0,ck); Object.assign(S.equipDone,keep); }); return; }
   if(a==='addappliance'){ const e2={id:uid(),name:'New appliance',make:'',model:'',serial:'',notes:'',specs:[],checks:[],cat:'appliance'};
-    S.equipment.push(e2); openEquip=e2.id; render(); save(); return; }
+    S.equipment.push(e2); gsecSet('appliances',true); modalAt=Date.now(); modal={kind:'card',type:'eq',id:e2.id,edit:true}; editing=true; render(); save(); return; }
   if(a==='addequip'){ const e2={id:uid(),name:'New equipment',make:'',model:'',serial:'',notes:'',specs:[],checks:[]};
-    S.equipment.push(e2); openEquip=e2.id; render(); save(); return; }
+    S.equipment.push(e2); gsecSet('equipment',true); modalAt=Date.now(); modal={kind:'card',type:'eq',id:e2.id,edit:true}; editing=true; render(); save(); return; }
   if(a==='delequip'){ const i=S.equipment.findIndex(x=>x.id===id); if(i<0) return;
     const [e2]=S.equipment.splice(i,1);
     const keep={};   // its ticked years go with it, and come back with it
@@ -4717,7 +4783,7 @@ document.addEventListener('click',async e=>{
     deleted('\u201c'+(ck.title||'that check')+'\u201d',
       ()=>{ q2.checks.splice(i,0,ck); Object.assign(S.vehicleDone,keep); }); return; }
   if(a==='addvehicle'){ const v2={id:uid(),name:'New vehicle',make:'',model:'',serial:'',notes:'',specs:[],checks:[]};
-    S.vehicles.push(v2); openVehicle=v2.id; render(); save(); return; }
+    S.vehicles.push(v2); gsecSet('vehicles',true); modalAt=Date.now(); modal={kind:'card',type:'veh',id:v2.id,edit:true}; editing=true; render(); save(); return; }
   if(a==='delvehicle'){ const i=S.vehicles.findIndex(x=>x.id===id); if(i<0) return;
     const [v2]=S.vehicles.splice(i,1);
     const keep={};
@@ -4779,7 +4845,7 @@ document.addEventListener('click',async e=>{
     const [sp]=p2.specs.splice(i,1);
     deleted(sp.k?'\u201c'+sp.k+'\u201d':'that detail',()=>p2.specs.splice(i,0,sp)); return; }
   if(a==='addpet'){ const p2={id:uid(),name:'',breed:'',vetName:'',vetPhone:'',specs:[],addedAt:Date.now(),addedBy:pref.who()};
-    S.pets.push(p2); openPet=p2.id; render(); save(); return; }
+    S.pets.push(p2); gsecSet('pets',true); openPet=p2.id; modalAt=Date.now(); modal={kind:'card',type:'pet',id:p2.id,edit:true}; editing=true; render(); save(); return; }
   if(a==='delpet'){ const i=S.pets.findIndex(x=>x.id===id); if(i<0) return;
     const [p2]=S.pets.splice(i,1);
     // its papers fall back to Papers, and its photos go loose rather than staying pinned to a pet that is gone
