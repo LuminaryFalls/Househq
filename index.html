@@ -126,7 +126,7 @@ const I = {
    the artifact storage. Memory as a last resort.
    Everything saves automatically — there is no Save button.
 ============================================================ */
-const BUILD='2026-09-12e';        // keep in step with VERSION in sw.js
+const BUILD='2026-10-21a';        // keep in step with VERSION in sw.js
 const KEY='househq3', PKEY=id=>'hqphoto:'+id, TKEY=id=>'hqthumb:'+id;
 const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timed out')),ms))]);
 
@@ -2071,9 +2071,22 @@ button.mcol{background:none;border:0;padding:0;min-height:0;border-radius:6px;co
 .pbig img{width:100%;display:block;border-radius:12px;border:1px solid ${t.rule};background:${t.ground}}
 
 /* full-screen viewer for files */
-.fv{position:fixed;inset:0;z-index:60;background:${t.ground};display:grid;grid-template-rows:auto 1fr}
-.fv .bar{display:flex;align-items:center;gap:6px;background:${t.paper};border-bottom:1px solid ${t.rule};
-  padding:8px 10px;padding-top:calc(8px + env(safe-area-inset-top))}
+.fv{position:fixed;inset:0;z-index:60;background:${t.ground};display:grid;grid-template-rows:auto minmax(0,1fr)}
+.fv .bar{display:flex;align-items:center;gap:12px;background:${t.paper};border-bottom:.5px solid ${t.ink}26;
+  padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top))}
+.fv .bar .fvbtn{width:44px;height:44px;min-height:0;padding:0;flex:0 0 44px;border-radius:50%;display:grid;place-items:center;
+  background:${t.ink}14;border:0;color:${t.ink}}
+.fv .bar .fvbtn svg{width:20px;height:20px}
+.fv .bar .fvbtn.out{color:${t.accent}}
+.fv .bar .nm{text-align:center}
+.sheetx{flex:0 0 38px;width:38px;height:38px;min-height:0;padding:0;margin:-2px -4px 0 0;border-radius:50%;display:grid;place-items:center;
+  border:0;background:${t.ink}14;color:${t.ink70}}
+.sheetx svg{width:18px;height:18px}
+.fv .bar{min-height:calc(64px + env(safe-area-inset-top));box-sizing:border-box}
+.vclose{position:fixed;top:calc(12px + env(safe-area-inset-top));left:14px;z-index:61;width:44px;height:44px;min-height:0;padding:0;
+  border-radius:50%;display:grid;place-items:center;border:0;color:#fff;background:rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.vclose svg{width:20px;height:20px}
 .fv .bar .nm{flex:1;min-width:0;font:700 17px ${HEAD};overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fv .stage{overflow:auto;-webkit-overflow-scrolling:touch;position:relative}
 .fv iframe{width:100%;height:100%;border:0;background:#fff;display:block}
@@ -3815,8 +3828,6 @@ function cardHTML(){
     <div class="pc-acts">${acts.map(act).join('')}</div>
     ${body}
     <div class="pc-group pc-list">
-      ${m.type==='misc'?(()=>{ const tw=applianceTwin(o); return tw?`<button class="pc-li" data-act="misctoeq" data-id="${o.id}" data-into="${tw.id}">${I.wrench} Merge into ${esc(tw.name)} (Upkeep)</button>`
-        :`<button class="pc-li" data-act="misctoeq" data-id="${o.id}">${I.wrench} Move to Appliances</button>`; })():''}
       <button class="pc-li" data-act="cardshare">${I.share} Share ${esc(noun)} details</button>
       <button class="pc-li danger" data-act="sheetdel" data-v="${delAct}" data-id="${o.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this '+noun}</button>
     </div></div></div></div>`;
@@ -4316,10 +4327,10 @@ function modalHTML(){
   if(modal.kind==='handoff'){
     return `<div class="fv">
       <div class="bar">
-        <button class="icb" data-act="closemodal" aria-label="Close">${I.x}</button>
+        <button class="fvbtn" data-act="closemodal" aria-label="Close">${I.x}</button>
         <div class="nm">Handoff pack</div>
-        <button class="icb" data-act="handoffsave" aria-label="Save the page">${I.save}</button>
-        <button class="icb" data-act="handoffprint" aria-label="Print or save as PDF">${I.paper}</button>
+        <button class="fvbtn out" data-act="handoffsave" aria-label="Save the page">${I.save}</button>
+        <button class="fvbtn out" data-act="handoffprint" aria-label="Print or save as PDF">${I.paper}</button>
       </div>
       <div class="stage" id="fv"></div>
     </div>`;
@@ -4328,9 +4339,9 @@ function modalHTML(){
     const f=S.files.find(x=>x.id===modal.id)||{name:'File'};
     return `<div class="fv">
       <div class="bar">
-        <button class="icb" data-act="closemodal" aria-label="Close">${I.x}</button>
+        <button class="fvbtn" data-act="closemodal" aria-label="Close">${I.x}</button>
         <div class="nm">${esc(f.name||'File')}</div>
-        <button class="icb" data-act="fileout" data-id="${modal.id}" aria-label="Open in another app">${I.link}</button>
+        <button class="fvbtn out" data-act="fileout" data-id="${modal.id}" aria-label="Open in another app">${I.share}</button>
       </div>
       <div class="stage" id="fv"></div>
     </div>`;
@@ -4343,11 +4354,10 @@ function modalHTML(){
           <span>${esc(fmtDate(p.addedAt))}${p.caption?' · '+esc(p.caption):''}</span>
           <button data-act="cmpstep" data-side="${side}" data-d="1" ${i>=list.length-1?'disabled':''} aria-label="Later">${I.right}</button></div>
       </div>`; };
-    return `<div class="viewer cmp" data-act="scrim">${pane('a')}${pane('b')}
-      <button class="icb cmpx" data-act="closemodal" aria-label="Close">${I.x}</button></div>`;
+    return `<div class="viewer cmp" data-act="scrim"><button class="vclose" data-act="closemodal" aria-label="Close">${I.x}</button>${pane('a')}${pane('b')}</div>`;
   }
   if(modal.kind==='photo'){
-    return `<div class="viewer" data-act="scrim"><img src="${photoCache[modal.id]||''}" alt=""></div>`;
+    return `<div class="viewer" data-act="scrim"><button class="vclose" data-act="closemodal" aria-label="Close">${I.x}</button><img src="${photoCache[modal.id]||''}" alt=""></div>`;
   }
   return '';
 }
@@ -4360,7 +4370,7 @@ function sheet(title,inner,auto,opt){
     <div class="pc-group pc-body"><div class="fields">${inner}</div></div></div></div></div>`;
   return `<div class="scrim" data-act="scrim"><div class="sheet">
     <div class="top"><div><h3>${esc(title)}</h3>${auto?'<div class="auto">Saves as you type</div>':''}</div>
-      <button class="icb" data-act="closemodal" aria-label="Close">${I.x}</button></div>
+      <button class="sheetx" data-act="closemodal" aria-label="Close">${I.x}</button></div>
     <div class="fields">${inner}</div></div></div>`;
 }
 
