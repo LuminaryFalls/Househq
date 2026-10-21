@@ -2079,6 +2079,20 @@ button.mcol{background:none;border:0;padding:0;min-height:0;border-radius:6px;co
 .fv .bar .fvbtn svg{width:20px;height:20px}
 .fv .bar .fvbtn.out{color:${t.accent}}
 .fv .bar .nm{text-align:center}
+.ss-meta{display:flex;align-items:center;gap:6px;margin:2px 0 8px;font-size:13.5px;font-weight:600;color:${t.ink70}}
+.ss-meta svg{width:15px;height:15px}
+.ss-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px 8px}
+.sstable{border-collapse:collapse;width:100%;font-size:14.5px}
+.sstable th{text-align:left;font-size:12.5px;font-weight:700;color:${t.ink70};padding:8px 8px;border-bottom:1px solid ${t.ink}30;vertical-align:bottom}
+.sstable td{padding:9px 8px;border-bottom:.5px solid ${t.ink}1F;vertical-align:top;color:${t.ink};overflow-wrap:break-word;word-break:normal}
+.sstable tr:not(.ssnote):not(.sstitle) td:first-child{font-weight:600;min-width:92px}
+.sstable th.num{white-space:normal;min-width:72px}
+.sstable .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sstable td.num{font-weight:600}
+.sstable tr.sstotal td{font-weight:800;border-top:1.5px solid ${t.ink}55;border-bottom:0;padding-top:11px}
+.sstable tr.sstitle td{font-size:17px;font-weight:800;padding:2px 8px 4px;border:0}
+.sstable tr.ssnote td{font-size:13px;color:${t.ink70};padding:0 8px 10px;border:0}
+.linkbtn{background:none;border:0;padding:0;min-height:0;color:${t.warn};font-weight:600;font-size:inherit;text-decoration:underline}
 .sheetx{flex:0 0 38px;width:38px;height:38px;min-height:0;padding:0;margin:-2px -4px 0 0;border-radius:50%;display:grid;place-items:center;
   border:0;background:${t.ink}14;color:${t.ink70}}
 .sheetx svg{width:18px;height:18px}
@@ -2999,6 +3013,19 @@ function viewBudget(){
     ${monthChart(monthTotals(all,y),ymY===y?ymM-1:-1,y)}
   </div></div>
 
+  ${(()=>{ const sh=sharedSheet(); if(gsec()['b.shared']===undefined) gsecSet('b.shared',true);
+    let rows=null; try{ rows=sh&&sh.table?JSON.parse(sh.table):null; }catch(e){ rows=null; }
+    const when=sh&&sh.at?new Date(sh.at):null;
+    const whenTxt=when?`${fmtDate(isoOf(when))} at ${when.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`:'';
+    return `<section class="grp zone fold ${fo('b.shared')}">${fhead('b.shared',sh?(sh.name||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' '):'Shared spreadsheet')}
+      ${fsum(sh?`Uploaded ${whenTxt}${sh.by?' by '+sh.by:''}`:'Upload a spreadsheet everyone in the house can see')}
+      ${sh?`<p class="ss-meta">${I.cal} Uploaded ${esc(whenTxt)}${sh.by?' by '+esc(sh.by):''}</p>
+        ${rows&&rows.length?sheetTableHTML(rows):`<p class="hint">Tap Open full screen to see it.</p>`}
+        <div class="btns" style="margin-top:4px"><button class="btn" data-act="openfile" data-id="${sh.id}">${I.grid} Open full screen</button>
+          <button class="btn" data-act="sharedup">${I.plus} Upload a new one</button></div>
+        <p class="hint" style="margin-top:8px">A new upload replaces this one on every phone. <button class="linkbtn" data-act="delfile" data-id="${sh.id}">Remove it</button></p>`
+      :`<p class="hint">Upload a spreadsheet, like a debt tracker, and everyone in the house sees it here with the date it was uploaded. Uploading another replaces it.</p>
+        <button class="btn dash" data-act="sharedup">${I.plus} Upload a spreadsheet</button>`}</section>`; })()}
   <section class="grp zone fold ${fo('b.cats')}">${fhead('b.cats','Categories',cats.length)}${fsum(cats.map(c=>({n:c.l.name,v:sumIn(c.items,y)})).filter(x=>x.v>0).sort((p,q)=>q.v-p.v).slice(0,3).map(x=>x.n+' '+money(x.v)).join(' · ')||'Nothing spent yet in '+y)}
     ${cats.map(({l,items})=>{ const ty=sumIn(items,y), ly=sumIn(items,y-1);
       const yi=items.filter(it=>yearOf(it.date)===y).sort((p,q)=>(q.date||'').localeCompare(p.date||'')), last=yi[0];
@@ -3463,6 +3490,7 @@ function viewHouse(){
   ${filesSection('Papers','Nothing yet. The deed, the well report, warranties, manuals.')}
   <h3 class="sub">Spreadsheets</h3>
   ${filesSection('Budget','Nothing yet. Upload a spreadsheet and it opens here as a table, or paste the share link to one in Google Sheets, Excel or OneDrive.')}
+  ${sharedSheet()?`<p class="hint" style="margin-top:6px">The shared spreadsheet, ${esc(sharedSheet().name)}, is on the Budget tab.</p>`:''}
   ${attachedFiles().length?`<h3 class="sub">On your things</h3>`+attachedFiles().map(f=>`<div class="m" style="margin:10px 2px 2px;font-weight:600">${esc(catLabel(f.cat)||'Attached')}</div>${fileRow(f)}`).join(''):''}</section>
 
   <section class="zone fold ${fo('h.who')}">${fhead('h.who','Who to call',S.contacts.length)}${fsum(nameList(S.contacts.map(c=>c.name))||'Nobody yet')}
@@ -3725,12 +3753,39 @@ function ownerOptions(cur){
 function applianceTwin(x){ if(!x) return null; const code=(x.code||'').trim().toLowerCase(), nm=(x.name||'').toLowerCase(), eq=S.equipment||[];
   return (code&&eq.find(e=>[(e.model||''),(e.serial||'')].some(v=>v.trim().toLowerCase()===code)))
     ||eq.find(e=>{ const n=(e.name||'').trim().toLowerCase(); return n.length>=4&&nm.includes(n); })||null; }
-function undoable(msg,undo){ finalizeUndo(); const my={undo}; undoCur=my; setNote(msg,'undo');
-  undoTimer=setTimeout(()=>{ if(undoCur===my){ undoCur=null; if(noteKind==='undo') setNote(''); } },10000); render(); save(); }
+function undoable(msg,undo,finalize){ finalizeUndo(); const my={undo,finalize}; undoCur=my; setNote(msg,'undo');
+  undoTimer=setTimeout(()=>{ if(undoCur===my){ undoCur=null; if(my.finalize) my.finalize(); if(noteKind==='undo') setNote(''); } },10000); render(); save(); }
 function hideSplash(){ const el=document.getElementById('splash'); if(!el) return;
   const wait=Math.max(0,650-(Date.now()-(window.__splashAt||0)));
   setTimeout(()=>{ el.classList.add('gone'); setTimeout(()=>{ if(el.parentNode) el.remove(); },420); },wait); }
 const seasonIcon=()=>(window.SEASON_ICONS||{})[currentSeason()]||'';
+/* ---------- The shared spreadsheet (Budget tab): one at a time. Its first sheet is read once at upload and kept
+   with the file record as text, so every phone shows the table right away, even offline. ---------- */
+const sharedSheet=()=>(S.files||[]).find(f=>f.cat==='Shared')||null;
+async function sheetRows(file){
+  const name=file.name||'';
+  if(/\.(csv|tsv)$/i.test(name)) return parseDelim(await readText(file),/\.tsv$/i.test(name)?'\t':',');
+  await loadLib(LIB_SHEET); const XL=window.XLSX; if(!XL) throw new Error('no reader');
+  const wb=XL.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});
+  return XL.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false,blankrows:false});
+}
+function trimRows(rows){   // up to 300 rows x 20 columns, empty columns on the right dropped
+  rows=(rows||[]).slice(0,300).map(r=>(r||[]).slice(0,20).map(c=>String(c==null?'':c).slice(0,400)));
+  let w=0; rows.forEach(r=>{ for(let i=r.length-1;i>=0;i--) if(r[i].trim()){ w=Math.max(w,i+1); break; } });
+  return rows.map(r=>{ const x=r.slice(0,w); while(x.length<w) x.push(''); return x; });
+}
+function sheetTableHTML(rows){
+  const w=rows.reduce((m,r)=>Math.max(m,r.length),0), isNum=c=>/^([-+$€£(]?\s?[\d,]*\.?\d+%?\)?|[-–—])$/.test(String(c).trim());   // a lone dash is how Excel shows a zero
+  const full=r=>r.filter(c=>String(c).trim()).length;
+  const head=rows.findIndex(r=>full(r)>=2);
+  const numCol=[...Array(w).keys()].map(i=>{ const v=rows.slice(head+1).map(r=>r[i]).filter(c=>String(c).trim()); return v.length&&v.filter(isNum).length/v.length>.6; });
+  let titled=false;
+  return `<div class="ss-wrap"><table class="sstable">${rows.map((r,ri)=>{ const n=full(r); if(!n) return '';
+    if(n===1&&String(r[0]).trim()&&w>1&&ri<Math.max(head,1)){ const t=!titled; titled=true; return `<tr class="${t?'sstitle':'ssnote'}"><td colspan="${w}">${esc(r[0])}</td></tr>`; }
+    if(ri===head) return `<tr>${r.map((c,i)=>`<th class="${numCol[i]?'num':''}">${esc(c)}</th>`).join('')}</tr>`;
+    const tot=/\btotal\b/i.test(r.join(' '));
+    return `<tr class="${tot?'sstotal':''}">${r.map((c,i)=>`<td class="${numCol[i]&&isNum(c)?'num':''}">${esc(c)}</td>`).join('')}</tr>`; }).join('')}</table></div>`;
+}
 function cardItem(type,id){
   return type==='contact'?(S.contacts||[]).find(x=>x.id===id):type==='pet'?(S.pets||[]).find(x=>x.id===id)
     :type==='veh'?(S.vehicles||[]).find(x=>x.id===id):type==='misc'?(S.misc||[]).find(x=>x.id===id):(S.equipment||[]).find(x=>x.id===id);
@@ -4993,6 +5048,19 @@ document.addEventListener('click',async e=>{
       for(const [pid,w] of snap.photos){ const p=S.photos.find(q=>q.id===pid); if(p) p.where=w; }
       modal=null; });
     return; }
+  if(a==='sharedup'){ pickDoc(async f=>{
+      if(!/\.(xlsx|xlsm|xls|ods|numbers|csv|tsv)$/i.test(f.name||'')){ setNote('That isn\u2019t a spreadsheet. Pick an .xlsx, .xls or .csv file.'); return; }
+      let rows; try{ rows=trimRows(await sheetRows(f)); }
+      catch(e){ setNote('Couldn\u2019t read that spreadsheet. The reader needs a connection the first time, so try again when you\u2019re online.'); return; }
+      const old=(S.files||[]).filter(x=>x.cat==='Shared');
+      const rec=await addFile(f,{cat:'Shared'}); if(!rec) return;
+      rec.table=JSON.stringify(rows); gsecSet('b.shared',true);
+      if(!old.length){ render(); save(); setNote(`${rec.name} is shared. Everyone in the house sees it on the Budget tab.`,'ok'); return; }
+      S.files=S.files.filter(x=>!old.includes(x));
+      undoable(`Replaced ${old[0].name} with the new upload.`,
+        ()=>{ S.files=S.files.filter(x=>x.id!==rec.id); S.files.unshift(...old); store.del(FKEY(rec.id)); cloud.deleteFile(rec.id,rec.chunks); },
+        ()=>{ old.forEach(o=>{ if(o.stored){ store.del(FKEY(o.id)); cloud.deleteFile(o.id,o.chunks); } }); });
+    }); return; }
   if(a==='cardcopy'){ const val=(v||'').trim(); if(!val) return;
     try{ await navigator.clipboard.writeText(val); setNote('Copied: '+val,'ok'); }catch(e){ setNote('Copying was blocked here — press and hold to copy it.'); }
     return; }
@@ -5429,7 +5497,7 @@ function buildHandoff(){
   const photos=shots.map(p=>`<figure><img src="${photoCache[p.id]}" alt="">
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
   const fileAway=f=>{ if(f.away) return true;
-    if(/^(bill|fuel):/.test(f.cat||'')||f.cat==='Budget') return true;   // your money paperwork isn't the next owner's
+    if(/^(bill|fuel):/.test(f.cat||'')||f.cat==='Budget'||f.cat==='Shared') return true;   // your money paperwork isn't the next owner's
     const m=/^(eq|veh|pet|misc):(.+)$/.exec(f.cat||''); if(!m) return false;
     if(m[1]==='veh'||m[1]==='pet') return true;
     if(m[1]==='eq'){ const e=(S.equipment||[]).find(x=>x.id===m[2]); return !e||e.cat!=='appliance'; }
