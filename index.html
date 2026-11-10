@@ -126,7 +126,7 @@ const I = {
    the artifact storage. Memory as a last resort.
    Everything saves automatically — there is no Save button.
 ============================================================ */
-const BUILD='2026-10-21a';        // keep in step with VERSION in sw.js
+const BUILD='2026-11-10a';        // keep in step with VERSION in sw.js
 const KEY='househq3', PKEY=id=>'hqphoto:'+id, TKEY=id=>'hqthumb:'+id;
 const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timed out')),ms))]);
 
@@ -1109,6 +1109,9 @@ function catLabel(cat){
   const fm=/^fuel:(.+)$/.exec(cat||'');
   if(fm){ const f=(S.fuel||[]).find(x=>x.id===fm[1]); if(!f) return '';
     return (f.kind==='prepay'?'Fuel prepay':'Fuel delivery')+(f.date?' · '+fmtDate(f.date):''); }
+  const lm=/^log:(.+)$/.exec(cat||'');
+  if(lm){ const l=(S.logs||[]).find(x=>x.id===lm[1]); if(!l) return 'Record (deleted)';
+    return 'Record: '+([l.what||l.subject].filter(Boolean)[0]||'Service')+(l.date?' · '+fmtDate(String(l.date).slice(0,10)):''); }
   const m=/^(eq|veh|pet):(.+)$/.exec(cat||'');
   if(!m) return cat||'';
   const list=m[1]==='eq'?(S.equipment||[]):m[1]==='veh'?(S.vehicles||[]):(S.pets||[]);
@@ -1122,7 +1125,7 @@ const hasFiles=cat=>(S.files||[]).some(f=>f.cat===cat);
    Returns a function that puts it back (for Undo). */
 function releaseFiles(cat){ const moved=(S.files||[]).filter(f=>f.cat===cat); moved.forEach(f=>f.cat='Papers'); return ()=>moved.forEach(f=>f.cat=cat); }
 /* The sheet a file sheet should come back to: a bill, a fuel delivery or a prepay. */
-const sheetBack=()=>modal&&['spend','fuel','prepay','misc'].includes(modal.kind)?modal:null;
+const sheetBack=()=>modal&&['spend','fuel','prepay','misc','log'].includes(modal.kind)?modal:null;
 const fileCache={};
 const prettySize=n=>n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB';
 const isSheet=f=>/sheet|excel|csv|numbers/i.test(f.type||'')||/\.(xlsx?|xlsm|csv|numbers)$/i.test(f.name||'');
@@ -1971,6 +1974,9 @@ nav button.on{background:${t.accentSoft};color:var(--tc, ${t.accent})}
 .pc-act .pc-ic{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:${t.paper};border:1px solid ${t.ink}1A;color:${t.accent};box-shadow:0 2px 8px ${t.ink}14}
 .pc-act .pc-al{font-size:12px;font-weight:600;color:${t.ink70};text-align:center;line-height:1.2}
 .pc-act[aria-disabled="true"]{opacity:.35;pointer-events:none}
+.pc-acts:has(> :nth-child(5)){gap:6px}
+.pc-acts:has(> :nth-child(5)) .pc-act{width:62px}
+.pc-acts:has(> :nth-child(5)) .pc-ic{width:54px;height:54px}
 .pc-gt{font-size:13px;font-weight:700;color:${t.ink70};margin:18px 6px 6px;text-transform:uppercase;letter-spacing:.04em}
 .pc-group{background:${t.paper};border:1px solid ${t.ink}14;border-radius:22px;padding:2px 18px;margin:12px 0}
 .pc-gt+.pc-group{margin-top:0}
@@ -3744,7 +3750,7 @@ function migrateBuy(st){ if(!(st.buy||[]).length) return 0; st.bills=st.bills||[
       if(same){ same.low=true; if(extra&&!(same.note||'').includes(extra)) same.note=[same.note,extra].filter(Boolean).join(' · '); }   // already a supply: just flag it
       else if(!st.specs.some(x=>x.id==='buy_'+b.id)) st.specs.push({id:'buy_'+b.id,k:b.title||'Untitled',v:'',low:true,note:extra,photo:''}); } }
   const n=st.buy.length; st.buy=[]; return n; }
-const attachedFiles=()=>(S.files||[]).filter(f=>/^(eq|veh|pet|misc|bill|fuel):/.test(f.cat||'')).sort((a,b)=>(catLabel(a.cat)||'').localeCompare(catLabel(b.cat)||''));
+const attachedFiles=()=>(S.files||[]).filter(f=>/^(eq|veh|pet|misc|bill|fuel|log):/.test(f.cat||'')).sort((a,b)=>(catLabel(a.cat)||'').localeCompare(catLabel(b.cat)||''));
 function ownerOptions(cur){
   const grp=(label,items)=>items.length?`<optgroup label="${esc(label)}">${items.map(x=>`<option value="${x.id}" ${x.id===cur?'selected':''}>${esc(x.name||'Unnamed')}</option>`).join('')}</optgroup>`:'';
   const eq=S.equipment||[];
@@ -3819,7 +3825,8 @@ function cardHTML(){
     return L.slice(0,5).map(l=>row(fmtDate(l.date),[l.what||l.subject,l.who,num(l.cost)?money(num(l.cost)):''].filter(Boolean).join(' · ')||'Record',
       {act:'cardgo',attrs:`data-go="editlog" data-id="${l.id}"`,trail:I.right})).concat(L.length>5?[row('',`${L.length-5} more in Service history`)]:[]); };
   const fileKind=f=>f.stored?(((f.name||'').split('.').pop()||'').length<=4&&(f.name||'').includes('.')?(f.name.split('.').pop().toUpperCase()+' file'):'file'):'link';
-  const docs=cat=>(S.files||[]).filter(f=>f.cat===cat).map(f=>`<div class="pc-row"><button class="pc-rowbtn" data-act="openfile" data-id="${f.id}"><span class="pc-tx"><span class="pc-l">${esc(fileKind(f))}</span><span class="pc-v" style="color:var(--accent)">${esc(f.name)}</span></span></button>
+  const recFiles=oid=>oid?(S.files||[]).filter(f=>{ const lm=/^log:(.+)$/.exec(f.cat||''); if(!lm) return false; const l=(S.logs||[]).find(x=>x.id===lm[1]); return !!l&&l.refId===oid; }):[];
+  const docs=(cat,oid)=>[...(S.files||[]).filter(f=>f.cat===cat),...recFiles(oid)].map(f=>`<div class="pc-row"><button class="pc-rowbtn" data-act="openfile" data-id="${f.id}"><span class="pc-tx"><span class="pc-l">${esc(fileKind(f)+(/^log:/.test(f.cat||'')?' · '+catLabel(f.cat).replace(/^Record: /,''):''))}</span><span class="pc-v" style="color:var(--accent)">${esc(f.name)}</span></span></button>
       <button class="pc-mini icon" data-act="cardgo" data-go="fileedit" data-id="${f.id}" aria-label="Rename or delete">${I.pencil}</button></div>`);
   const strip=ids=>ids.length?`<div class="pc-group pc-photos"><div class="pc-strip">${ids.map(id=>`<button class="pc-ph" data-act="cardgo" data-go="viewphoto" data-id="${id}" data-thumb="${id}">${thumbOf(id)?`<img src="${thumbOf(id)}" alt="">`:I.img}</button>`).join('')}</div></div>`:'';
   const initial=n=>esc(((n||'?').trim()[0]||'?').toUpperCase());
@@ -3839,10 +3846,10 @@ function cardHTML(){
   } else if(m.type==='pet'){
     const tel=o.vetPhone?telOf(o.vetPhone):''; photo=petAvatarId(o); sub=o.breed||''; delAct='delpet'; noun='pet';
     acts=[{label:'call vet',icon:I.phone,href:tel?'tel:'+tel:''},{label:'vet visit',icon:I.vet,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Vet visit"`},
-          {label:'grooming',icon:I.scissors,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Grooming"`},{label:'add photos',icon:I.cam,act:'cardgo',attrs:`data-go="snappet" data-id="${o.id}"`}];
+          {label:'grooming',icon:I.scissors,act:'cardgo',attrs:`data-go="log" data-id="${o.id}" data-sub="${esc(o.name)}" data-what="Grooming"`},{label:'add photos',icon:I.cam,act:'cardgo',attrs:`data-go="snappet" data-id="${o.id}"`},{label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="pet:${o.id}"`}];
     body=group('Vet',[row('vet',o.vetName),row('vet phone',o.vetPhone,{href:tel?'tel:'+tel:'',trail:I.phone})])
         +group('Details',(o.specs||[]).map(x=>row(x.k||'Detail',x.v)))+group('Dates',dues(o))+group('Service history',recs(o.id))
-        +(petPhotos(o).length?`<div class="pc-gt">Photos</div>${strip(petPhotos(o).slice(-12).reverse().map(x=>x.id))}`:'')+group('Documents',docs('pet:'+o.id));
+        +(petPhotos(o).length?`<div class="pc-gt">Photos</div>${strip(petPhotos(o).slice(-12).reverse().map(x=>x.id))}`:'')+group('Documents',docs('pet:'+o.id,o.id));
   } else if(m.type==='misc'){
     photo=itemPhotoId('misc',o); sub=[o.kind,o.room].filter(Boolean).join(' · '); delAct='delmisc'; noun='item';
     acts=[{label:'add file',icon:I.paper,act:'cardgo',attrs:`data-go="addfile" data-v="misc:${o.id}"`}];
@@ -3865,7 +3872,7 @@ function cardHTML(){
           return `<div class="pc-row"><span class="pc-tx"><span class="pc-l">${esc(x.k||'Part')}</span><span class="pc-v">${esc(x.v||'—')}</span></span>
             ${ls?`<button class="pc-mini" data-act="cardgo" data-go="specopen" data-id="${ls.id}" data-sid="${ls.id}">${I.check} In Supplies</button>`
                 :`<button class="pc-mini" data-act="partreorder" data-kind="${m.type}" data-id="${o.id}" data-sid="${x.id}">${I.plus} Reorder</button>`}</div>`; }))+(checks.length?`<div class="pc-gt">Tune-up checks · ${y}</div><div class="pc-group">${checks.join('')}</div>`:'')
-        +group('Dates',dues(o))+group('Service history',recs(o.id))+group('Documents',docs((isVeh?'veh:':'eq:')+o.id))+group('',[row('Notes',o.notes)]);
+        +group('Dates',dues(o))+group('Service history',recs(o.id))+group('Documents',docs((isVeh?'veh:':'eq:')+o.id,o.id))+group('',[row('Notes',o.notes)]);
   }
   if(m.edit&&m.type!=='contact'&&m.type!=='misc') return `<div class="scrim" data-act="scrim"><div class="sheet page"><div class="pcard editing">
     <div class="pc-top"><span></span><button class="pc-pill on" data-act="cardeditdone">Done</button></div>
@@ -3928,6 +3935,8 @@ function modalHTML(){
         S.budget.map(l=>`<option value="${l.id}" ${d.lineId===l.id?'selected':''}>${esc(l.name||'Unnamed')}</option>`).join('')}</select></label>`:''}
       ${stripHTML(d.photos)}
       <button class="btn" data-act="mphoto">${I.cam} ${(d.photos||[]).length?'Add another photo':'Take or add a photo of the paperwork'}</button>
+      <div class="lbl" style="margin:6px 0 -2px">Invoices and other files</div>
+      ${filesSection('log:'+d.id,'PDF invoices, receipts, warranty papers.')}
       <button class="btn solid" data-act="done">Done</button>
       ${modal.isEdit?`<button class="btn danger big" data-act="dellog" data-id="${d.id}">${I.trash} ${modal.confirm?'Tap again to delete for good':'Delete this record'}</button>`:''}`,true);
   }
@@ -5158,7 +5167,7 @@ document.addEventListener('click',async e=>{
   if(a==='prejoindrop'){ await store.del(PREJOIN_KEY); prejoin=null; render(); return; }
   if(a==='pasterestore'){ modalAt=Date.now(); modal={kind:'paste'}; render(); return; }
   if(a==='openfile'){ const back=sheetBack(); await openFile(id); if(back&&modal&&modal.kind==='fileview') modal.back=back; return; }
-  if(a==='addfile'){ const cat=v, back=sheetBack();
+  if(a==='addfile'){ if(modal&&modal.kind==='log') commitDraft(); const cat=v, back=sheetBack()||(modal&&modal.kind==='card'?modal:null);   // come back to the item's page too
     pickDoc(async f=>{ const rec=await addFile(f,{cat});
       if(rec){ modalAt=Date.now(); modal={kind:'fileedit',isNew:true,back,draft:{...rec}}; }
       render(); });
@@ -5498,6 +5507,10 @@ function buildHandoff(){
     <figcaption><b>${esc(p.caption||'Not named')}</b>${p.where?' — '+esc(p.where):''}<br>${esc(fmtDate(p.addedAt))}${p.note?'<br>'+esc(p.note):''}</figcaption></figure>`).join('');
   const fileAway=f=>{ if(f.away) return true;
     if(/^(bill|fuel):/.test(f.cat||'')||f.cat==='Budget'||f.cat==='Shared') return true;   // your money paperwork isn't the next owner's
+    const lg=/^log:(.+)$/.exec(f.cat||'');
+    if(lg){ const l=(S.logs||[]).find(x=>x.id===lg[1]); if(!l) return true; if(!l.refId) return false;
+      if((S.pets||[]).some(x=>x.id===l.refId)||(S.vehicles||[]).some(x=>x.id===l.refId)) return true;
+      const e=(S.equipment||[]).find(x=>x.id===l.refId); return !!e&&e.cat!=='appliance'; }
     const m=/^(eq|veh|pet|misc):(.+)$/.exec(f.cat||''); if(!m) return false;
     if(m[1]==='veh'||m[1]==='pet') return true;
     if(m[1]==='eq'){ const e=(S.equipment||[]).find(x=>x.id===m[2]); return !e||e.cat!=='appliance'; }

@@ -4,7 +4,7 @@
    build shows on the next open with or without a bump. Fonts, the PDF and
    spreadsheet readers, and the Firebase SDK live in their own cache, LIBS, so a
    bump does not throw them away and make the phone download them again. */
-const VERSION = 'househq-2026-10-21a';
+const VERSION = 'househq-2026-11-10a';
 const LIBS = 'househq-libs-v1';
 const CORE = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
